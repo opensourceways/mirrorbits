@@ -485,6 +485,16 @@ type MirrorStats struct {
 	TZOffset   time.Duration
 }
 
+type MirrorStatsExtended struct {
+	mirrors.Mirror
+	Downloads  int64
+	Bytes      int64
+	PercentD   float32
+	PercentB   float32
+	SyncOffset SyncOffset
+	TZOffset   time.Duration
+}
+
 // SyncOffset contains the time offset between the mirror and the local repository
 type SyncOffset struct {
 	Valid         bool
@@ -556,6 +566,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	var maxdownloads int64
 	var maxbytes int64
 	var results []MirrorStats
+	var jsonResults []MirrorStatsExtended
 	var index int64
 	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
 	for _, id := range mirrorsIDs {
@@ -606,7 +617,17 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 			},
 			TZOffset: tzoffset,
 		}
+		// construct json results
+		js := MirrorStatsExtended{
+			mirror,
+			s.Downloads,
+			s.Bytes,
+			s.PercentD,
+			s.PercentB,
+			s.SyncOffset,
+			s.TZOffset}
 		results = append(results, s)
+		jsonResults = append(jsonResults, js)
 		index += 2
 	}
 
@@ -617,11 +638,20 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		results[i].PercentB = float32(results[i].Bytes) * 100 / float32(maxbytes)
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath, hasTZAdjustement})
-	if err != nil {
-		log.Errorf("HTTP error: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	//output json or html based on config output as well as the request application type
+	accept := r.Header.Get("Accept")
+	if GetConfig().OutputMode == "json" || strings.Index(accept, "application/json") >= 0 {
+		ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+		err = json.NewEncoder(ctx.ResponseWriter()).Encode(jsonResults)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath, hasTZAdjustement})
+		if err != nil {
+			log.Errorf("HTTP error: %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
