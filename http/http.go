@@ -5,6 +5,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -230,7 +231,7 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 
 	if f.IsDir() {
 		//try sub file instead
-		err := filepath.Walk(f.Name(), func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
 			//skip directory or filename start with .
 			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
 				return nil
@@ -249,32 +250,31 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 	} else {
 		fileList = append(fileList, fileInfo)
 	}
+	if len(fileList) == 0 {
+		return nil, nil, errors.New(fmt.Sprintf("unable to get files from local path for requested file %s", fileInfo.Path))
+	}
 	var allMirrorList mirrors.Mirrors
-	var allExcludedMirrorList mirrors.Mirrors
 	mapMirror := make(map[string]string)
-	mapExcluded := make(map[string]string)
-	for i, info := range fileList {
-		newList, newExcluded, err := h.engine.Selection(ctx, cache, info, clientInfo)
+	for i, f := range fileList {
+		*fileInfo, err = cache.GetFileInfo(f.Path)
 		if err != nil {
-			return nil, nil, err
+			log.Errorf("unable to find file %s from cache", f.Path)
+			continue
 		}
-		//append excluded item only when not included.
-		for _, m := range newExcluded {
-			if _, ok := mapExcluded[m.Name]; ok {
-				continue
-			}
-			allExcludedMirrorList = append(allExcludedMirrorList, m)
-			mapExcluded[m.Name] = m.Name
+		mlist, err := cache.GetMirrors(f.Path, clientInfo)
+		if err != nil {
+			log.Errorf("unable to get mirror for file %s ", f.Path)
+			continue
 		}
 		//append mirrors only when both included
 		if i == 0 {
-			for _, m := range newList {
+			for _, m := range mlist {
 				allMirrorList = append(allMirrorList, m)
 				mapMirror[m.Name] = m.Name
 			}
 		} else {
 			var tempMirror mirrors.Mirrors
-			for _, m := range newList {
+			for _, m := range mlist {
 				if _, ok := mapMirror[m.Name]; ok {
 					tempMirror = append(tempMirror, m)
 				}
@@ -282,7 +282,16 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 			allMirrorList = tempMirror
 		}
 	}
-	return allMirrorList, allExcludedMirrorList, nil
+	log.Infof("all mirrors are scanned and valid mirrors are %v", allMirrorList)
+	if len(allMirrorList) == 0 {
+		return nil, nil, errors.New("all mirrors don't have requested file(s)")
+	}
+	//since all files are found in mirrors, we can use first file for detection
+	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList)
+	if err != nil {
+		return nil, nil, err
+	}
+	return mList, mExcluded, nil
 }
 
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
