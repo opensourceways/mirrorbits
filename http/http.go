@@ -282,9 +282,9 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 			allMirrorList = tempMirror
 		}
 	}
-	log.Infof("all mirrors are scanned and valid mirrors are %v", allMirrorList)
+	log.Infof("all mirrors are scanned and there are %d valid mirrors.", len(allMirrorList))
 	if len(allMirrorList) == 0 {
-		return nil, nil, errors.New("all mirrors don't have requested file(s)")
+		return nil, nil, errors.New("neither of mirrors have requested file(s)")
 	}
 	//since all files are found in mirrors, we can use first file for detection
 	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList)
