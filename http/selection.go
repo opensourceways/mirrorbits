@@ -187,7 +187,7 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 			weights[m.ID] = m.ComputedScore - baseScore
 			log.Infof("mirror %s is chosen for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
 		} else {
-			log.Infof("mirror %s is chosen for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
+			log.Infof("mirror %s is abandoned for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
 		}
 	}
 
