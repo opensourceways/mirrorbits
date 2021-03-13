@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -217,6 +219,72 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//select mirrors based on file or directory
+func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error){
+	var fileList []*filesystem.FileInfo
+	localPath := path.Join(GetConfig().Repository, fileInfo.Path)
+	f, err := os.Stat(localPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if f.IsDir() {
+		//try sub file instead
+		err := filepath.Walk(f.Name(), func(path string, info os.FileInfo, err error) error {
+			//skip directory or filename start with .
+			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
+				return nil
+			}
+			// only collect ten files at most
+			if len(fileList) > 10  {
+				return io.EOF
+			}
+			newFileInfo := filesystem.NewFileInfo(path[len(GetConfig().Repository):])
+			fileList = append(fileList, &newFileInfo)
+			return nil
+		})
+		if err != io.EOF {
+			return nil, nil, err
+		}
+	} else {
+		fileList = append(fileList, fileInfo)
+	}
+	var allMirrorList mirrors.Mirrors
+	var allExcludedMirrorList mirrors.Mirrors
+	mapMirror := make(map[string]string)
+	mapExcluded := make(map[string]string)
+	for i, info := range fileList {
+		newList, newExcluded, err := h.engine.Selection(ctx, cache, info, clientInfo)
+		if err != nil {
+			return nil, nil, err
+		}
+		//append excluded item only when not included.
+		for _, m := range newExcluded {
+			if _, ok := mapExcluded[m.Name]; ok {
+				continue
+			}
+			allExcludedMirrorList = append(allExcludedMirrorList, m)
+			mapExcluded[m.Name] = m.Name
+		}
+		//append mirrors only when both included
+		if i == 0 {
+			for _, m := range newList {
+				allMirrorList = append(allMirrorList, m)
+				mapMirror[m.Name] = m.Name
+			}
+		} else {
+			var tempMirror mirrors.Mirrors
+			for _, m := range newList {
+				if _, ok := mapMirror[m.Name]; ok {
+					tempMirror = append(tempMirror, m)
+				}
+			}
+			allMirrorList = tempMirror
+		}
+	}
+	return allMirrorList, allExcludedMirrorList, nil
+}
+
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
 
@@ -247,7 +315,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
 
-	mlist, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
+	mlist, excluded, err := h.mirrorSelector(ctx, h.cache, &fileInfo, clientInfo)
 
 	/* Handle errors */
 	fallback := false
