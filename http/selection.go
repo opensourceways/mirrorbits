@@ -21,26 +21,15 @@ import (
 type mirrorSelection interface {
 	// Selection must return an ordered list of selected mirror,
 	// a list of rejected mirrors and and an error code.
-	Selection(*Context, *mirrors.Cache, *filesystem.FileInfo, network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error)
+	Selection(*Context, *filesystem.FileInfo, network.GeoIPRecord, mirrors.Mirrors) (mirrors.Mirrors, mirrors.Mirrors, error)
 }
 
 // DefaultEngine is the default algorithm used for mirror selection
 type DefaultEngine struct{}
 
 // Selection returns an ordered list of selected mirror, a list of rejected mirrors and and an error code
-func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
-	// Get details about the requested file
-	*fileInfo, err = cache.GetFileInfo(fileInfo.Path)
-	if err != nil {
-		return
-	}
-
-	// Prepare and return the list of all potential mirrors
-	mlist, err = cache.GetMirrors(fileInfo.Path, clientInfo)
-	if err != nil {
-		return
-	}
-
+func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, pMirrors mirrors.Mirrors) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
+	mlist = pMirrors
 	// Filter
 	safeIndex := 0
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
@@ -196,6 +185,9 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			// The weight must always be > 0 to not break the randomization below
 			totalScore += m.ComputedScore - baseScore
 			weights[m.ID] = m.ComputedScore - baseScore
+			log.Infof("mirror %s is chosen for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
+		} else {
+			log.Infof("mirror %s is abandoned for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
 		}
 	}
 

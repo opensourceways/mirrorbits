@@ -5,12 +5,15 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -217,6 +220,80 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//select mirrors based on file or directory
+func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error){
+	var fileList []*filesystem.FileInfo
+	localPath := path.Join(GetConfig().Repository, fileInfo.Path)
+	f, err := os.Stat(localPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if f.IsDir() {
+		//try sub file instead
+		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+			//skip directory or filename start with .
+			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
+				return nil
+			}
+			// only collect ten files at most
+			if len(fileList) > 10  {
+				return io.EOF
+			}
+			newFileInfo := filesystem.NewFileInfo(path[len(GetConfig().Repository):])
+			fileList = append(fileList, &newFileInfo)
+			return nil
+		})
+		if err != io.EOF {
+			return nil, nil, err
+		}
+	} else {
+		fileList = append(fileList, fileInfo)
+	}
+	if len(fileList) == 0 {
+		return nil, nil, errors.New(fmt.Sprintf("unable to get files from local path for requested file %s", fileInfo.Path))
+	}
+	var allMirrorList mirrors.Mirrors
+	mapMirror := make(map[string]string)
+	for i, f := range fileList {
+		_, err = cache.GetFileInfo(f.Path)
+		if err != nil {
+			log.Errorf("unable to find file %s from cache", f.Path)
+			continue
+		}
+		mlist, err := cache.GetMirrors(f.Path, clientInfo)
+		if err != nil {
+			log.Errorf("unable to get mirror for file %s ", f.Path)
+			continue
+		}
+		//append mirrors only when both included
+		if i == 0 {
+			for _, m := range mlist {
+				allMirrorList = append(allMirrorList, m)
+				mapMirror[m.Name] = m.Name
+			}
+		} else {
+			var tempMirror mirrors.Mirrors
+			for _, m := range mlist {
+				if _, ok := mapMirror[m.Name]; ok {
+					tempMirror = append(tempMirror, m)
+				}
+			}
+			allMirrorList = tempMirror
+		}
+	}
+	log.Infof("all mirrors are scanned and there are %d valid mirrors.", len(allMirrorList))
+	if len(allMirrorList) == 0 {
+		return nil, nil, errors.New("neither of mirrors have requested file(s)")
+	}
+	//since all files are found in mirrors, we can use first file for detection
+	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList)
+	if err != nil {
+		return nil, nil, err
+	}
+	return mList, mExcluded, nil
+}
+
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
 
@@ -247,7 +324,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
 
-	mlist, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
+	mlist, excluded, err := h.mirrorSelector(ctx, h.cache, &fileInfo, clientInfo)
 
 	/* Handle errors */
 	fallback := false
@@ -485,6 +562,16 @@ type MirrorStats struct {
 	TZOffset   time.Duration
 }
 
+type MirrorStatsExtended struct {
+	mirrors.Mirror
+	Downloads  int64
+	Bytes      int64
+	PercentD   float32
+	PercentB   float32
+	SyncOffset SyncOffset
+	TZOffset   time.Duration
+}
+
 // SyncOffset contains the time offset between the mirror and the local repository
 type SyncOffset struct {
 	Valid         bool
@@ -556,6 +643,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	var maxdownloads int64
 	var maxbytes int64
 	var results []MirrorStats
+	var jsonResults []MirrorStatsExtended
 	var index int64
 	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
 	for _, id := range mirrorsIDs {
@@ -606,7 +694,17 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 			},
 			TZOffset: tzoffset,
 		}
+		// construct json results
+		js := MirrorStatsExtended{
+			mirror,
+			s.Downloads,
+			s.Bytes,
+			s.PercentD,
+			s.PercentB,
+			s.SyncOffset,
+			s.TZOffset}
 		results = append(results, s)
+		jsonResults = append(jsonResults, js)
 		index += 2
 	}
 
@@ -617,11 +715,20 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		results[i].PercentB = float32(results[i].Bytes) * 100 / float32(maxbytes)
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath, hasTZAdjustement})
-	if err != nil {
-		log.Errorf("HTTP error: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	//output json or html based on config output as well as the request application type
+	accept := r.Header.Get("Accept")
+	if GetConfig().OutputMode == "json" || strings.Index(accept, "application/json") >= 0 {
+		ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+		err = json.NewEncoder(ctx.ResponseWriter()).Encode(jsonResults)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath, hasTZAdjustement})
+		if err != nil {
+			log.Errorf("HTTP error: %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }

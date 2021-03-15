@@ -7,11 +7,10 @@ ADD . /go/mirrorbits
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config zlib1g-dev protobuf-compiler libprotoc-dev rsync && \
     apt-get clean
-RUN go get -u github.com/maxmind/geoipupdate2/cmd/geoipupdate && \
-    go install -ldflags "-X main.defaultConfigFile=/etc/GeoIP.conf -X main.defaultDatabaseDirectory=/usr/share/GeoIP" github.com/maxmind/geoipupdate2/cmd/geoipupdate && \
-    echo "AccountID 0\nLicenseKey 000000000000\nEditionIDs GeoLite2-City GeoLite2-Country GeoLite2-ASN" > /etc/GeoIP.conf && \
-    mkdir /usr/share/GeoIP && \
-    /go/bin/geoipupdate
+# install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
+# and geoip folder is /usr/share/GeoIP
+RUN GO111MODULE=on && go get -u github.com/maxmind/geoipupdate/v4/cmd/geoipupdate && \
+    mkdir /usr/share/GeoIP
 RUN mkdir /srv/repo /var/log/mirrorbits && \
     cd /go/mirrorbits && \
     make install PREFIX=/usr
