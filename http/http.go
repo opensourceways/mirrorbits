@@ -75,6 +75,10 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	h.stats = NewStats(redis)
 	h.engine = DefaultEngine{}
 	http.Handle("/", NewGzipHandler(h.requestDispatcher))
+	http.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(200)
+		writer.Write([]byte("ok"))
+	})
 
 	// Load the GeoIP databases
 	if err := h.geoip.LoadGeoIP(); err != nil {
