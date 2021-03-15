@@ -256,7 +256,7 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 	var allMirrorList mirrors.Mirrors
 	mapMirror := make(map[string]string)
 	for i, f := range fileList {
-		*fileInfo, err = cache.GetFileInfo(f.Path)
+		_, err = cache.GetFileInfo(f.Path)
 		if err != nil {
 			log.Errorf("unable to find file %s from cache", f.Path)
 			continue
