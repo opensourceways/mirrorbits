@@ -5,6 +5,7 @@ require (
 	github.com/etix/goftp v0.0.0-20170217140226-0c13163a1028
 	github.com/golang/protobuf v1.4.3
 	github.com/gomodule/redigo v0.0.0-20181026001555-e8fc0692a7e2
+	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
