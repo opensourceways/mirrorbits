@@ -27,7 +27,6 @@ import (
 	"github.com/etix/mirrorbits/utils"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/google/go-cmp/cmp"
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
@@ -550,6 +549,36 @@ func GetSingle(list []*rpc.MirrorID) (int, string, error) {
 	return int(list[0].ID), list[0].Name, nil
 }
 
+func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) error {
+	if mirror.HttpURL == updateMirror.HttpURL &&
+			mirror.RsyncURL == updateMirror.RsyncURL &&
+			mirror.FtpURL == updateMirror.FtpURL &&
+			mirror.SponsorName == updateMirror.SponsorName &&
+			mirror.SponsorURL == updateMirror.SponsorURL &&
+			mirror.AdminName == updateMirror.AdminName &&
+			mirror.AdminEmail == updateMirror.AdminEmail &&
+			mirror.ContinentOnly == updateMirror.ContinentOnly &&
+			mirror.CountryOnly == updateMirror.CountryOnly &&
+			mirror.ASOnly == updateMirror.ASOnly &&
+			mirror.Score == updateMirror.Score &&
+			mirror.Enabled == updateMirror.Enabled {
+		return errors.New("mirror attribute equal")
+	}
+	mirror.HttpURL = updateMirror.HttpURL
+	mirror.RsyncURL = updateMirror.RsyncURL
+	mirror.FtpURL = updateMirror.FtpURL
+	mirror.SponsorName = updateMirror.SponsorName
+	mirror.SponsorURL = updateMirror.SponsorURL
+	mirror.AdminName = updateMirror.AdminName
+	mirror.AdminEmail = updateMirror.AdminEmail
+	mirror.ContinentOnly = updateMirror.ContinentOnly
+	mirror.CountryOnly = updateMirror.CountryOnly
+	mirror.ASOnly = updateMirror.ASOnly
+	mirror.Score = updateMirror.Score
+	mirror.Enabled = updateMirror.Enabled
+	return nil
+}
+
 func (c *cli) CmdEdit(args ...string) error {
 	cmd := SubCmd("edit", "[IDENTIFIER]", "Edit a mirror")
 	mirrorFile := cmd.String("mirror-file", "", "File path used to update mirror")
@@ -561,7 +590,9 @@ func (c *cli) CmdEdit(args ...string) error {
 		return nil
 	}
 
+	fmt.Print(cmd.Arg(0))
 	id, _ := c.matchMirror(cmd.Arg(0))
+	fmt.Printf("this is the id %d", id)
 	client := c.GetRPC()
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
@@ -592,13 +623,12 @@ func (c *cli) CmdEdit(args ...string) error {
 		if mirror.Name != cmd.Arg(0) {
 			log.Fatalf("mirror name in file %s is not equal to command specified name %s.", mirror.Name, cmd.Arg(0))
 		}
-		if cmp.Equal(*newMirror, *mirror) {
-			log.Info("mirror is equal, mirror update ignored")
-			return nil
+		if err := CompareAndUpdate(mirror, newMirror); err != nil {
+			log.Fatalf("mirror update ignored due to %v", err)
 		}
 		ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
 		defer cancel()
-		m, err := rpc.MirrorToRPC(newMirror)
+		m, err := rpc.MirrorToRPC(mirror)
 		if err != nil {
 			log.Fatal("edit error:", err)
 		}
