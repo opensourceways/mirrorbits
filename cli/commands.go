@@ -590,9 +590,7 @@ func (c *cli) CmdEdit(args ...string) error {
 		return nil
 	}
 
-	fmt.Print(cmd.Arg(0))
 	id, _ := c.matchMirror(cmd.Arg(0))
-	fmt.Printf("this is the id %d", id)
 	client := c.GetRPC()
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
@@ -620,7 +618,7 @@ func (c *cli) CmdEdit(args ...string) error {
 		if err != nil {
 			log.Fatalf("cannot unmarshal update file into yaml object %v", *mirrorFile)
 		}
-		if mirror.Name != cmd.Arg(0) {
+		if newMirror.Name != cmd.Arg(0) {
 			log.Fatalf("mirror name in file %s is not equal to command specified name %s.", mirror.Name, cmd.Arg(0))
 		}
 		if err := CompareAndUpdate(mirror, newMirror); err != nil {
