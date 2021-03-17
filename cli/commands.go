@@ -27,6 +27,7 @@ import (
 	"github.com/etix/mirrorbits/utils"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/google/go-cmp/cmp"
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
@@ -551,7 +552,7 @@ func GetSingle(list []*rpc.MirrorID) (int, string, error) {
 
 func (c *cli) CmdEdit(args ...string) error {
 	cmd := SubCmd("edit", "[IDENTIFIER]", "Edit a mirror")
-
+	mirrorFile := cmd.String("mirror-file", "", "File path used to update mirror")
 	if err := cmd.Parse(args); err != nil {
 		return nil
 	}
@@ -560,15 +561,7 @@ func (c *cli) CmdEdit(args ...string) error {
 		return nil
 	}
 
-	// Find the editor to use
-	editor := os.Getenv("EDITOR")
-
-	if editor == "" {
-		log.Fatal("Environment variable $EDITOR not set")
-	}
-
 	id, _ := c.matchMirror(cmd.Arg(0))
-
 	client := c.GetRPC()
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
@@ -581,6 +574,51 @@ func (c *cli) CmdEdit(args ...string) error {
 	mirror, err := rpc.MirrorFromRPC(rpcm)
 	if err != nil {
 		log.Fatal("edit error:", err)
+	}
+	if *mirrorFile != "" {
+		if _, err := os.Stat(*mirrorFile); os.IsNotExist(err) {
+			log.Fatalf("mirror file not existed: %s", *mirrorFile)
+		}
+		// Update mirror directly
+		updateMirror, err := ioutil.ReadFile(*mirrorFile)
+		if err != nil {
+			log.Fatalf("cannot read file %s", *mirrorFile)
+		}
+		var newMirror *mirrors.Mirror
+		err = yaml.Unmarshal(updateMirror, &newMirror)
+		if err != nil {
+			log.Fatalf("cannot unmarshal update file into yaml object %v", *mirrorFile)
+		}
+		if mirror.Name != cmd.Arg(0) {
+			log.Fatalf("mirror name in file %s is not equal to command specified name %s.", mirror.Name, cmd.Arg(0))
+		}
+		if cmp.Equal(*newMirror, *mirror) {
+			log.Info("mirror is equal, mirror update ignored")
+			return nil
+		}
+		ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
+		defer cancel()
+		m, err := rpc.MirrorToRPC(newMirror)
+		if err != nil {
+			log.Fatal("edit error:", err)
+		}
+		reply, err := client.UpdateMirror(ctx, m)
+		if err != nil {
+			log.Fatal("edit error:", err)
+		}
+		if len(reply.Diff) > 0 {
+			fmt.Println(reply.Diff)
+		}
+
+		fmt.Printf("Mirror '%s' edited successfully\n", mirror.Name)
+		return nil
+	}
+
+	// Find the editor to use
+	editor := os.Getenv("EDITOR")
+
+	if editor == "" {
+		log.Fatal("Environment variable $EDITOR not set")
 	}
 
 	// Generate a yaml configuration string from the struct
