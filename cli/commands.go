@@ -549,7 +549,7 @@ func GetSingle(list []*rpc.MirrorID) (int, string, error) {
 	return int(list[0].ID), list[0].Name, nil
 }
 
-func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) error {
+func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool {
 	if mirror.HttpURL == updateMirror.HttpURL &&
 			mirror.RsyncURL == updateMirror.RsyncURL &&
 			mirror.FtpURL == updateMirror.FtpURL &&
@@ -562,7 +562,7 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) erro
 			mirror.ASOnly == updateMirror.ASOnly &&
 			mirror.Score == updateMirror.Score &&
 			mirror.Enabled == updateMirror.Enabled {
-		return errors.New("mirror attribute equal")
+		return false
 	}
 	mirror.HttpURL = updateMirror.HttpURL
 	mirror.RsyncURL = updateMirror.RsyncURL
@@ -576,7 +576,7 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) erro
 	mirror.ASOnly = updateMirror.ASOnly
 	mirror.Score = updateMirror.Score
 	mirror.Enabled = updateMirror.Enabled
-	return nil
+	return true
 }
 
 func (c *cli) CmdEdit(args ...string) error {
@@ -621,8 +621,9 @@ func (c *cli) CmdEdit(args ...string) error {
 		if newMirror.Name != cmd.Arg(0) {
 			log.Fatalf("mirror name in file %s is not equal to command specified name %s.", mirror.Name, cmd.Arg(0))
 		}
-		if err := CompareAndUpdate(mirror, newMirror); err != nil {
-			log.Fatalf("mirror update ignored due to %v", err)
+		if updated := CompareAndUpdate(mirror, newMirror); !updated {
+			log.Info("mirror update ignored due to attribute equal")
+			return nil
 		}
 		ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
 		defer cancel()
