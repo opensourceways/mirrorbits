@@ -9,7 +9,7 @@ RUN apt-get update -y && \
     apt-get clean
 # install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
 # and geoip folder is /usr/share/GeoIP
-RUN GO111MODULE=on && go get -u github.com/maxmind/geoipupdate/v4/cmd/geoipupdate && \
+RUN GO111MODULE=on && go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate && \
     mkdir /usr/share/GeoIP
 RUN mkdir /srv/repo /var/log/mirrorbits && \
     cd /go/mirrorbits && \
