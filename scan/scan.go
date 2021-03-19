@@ -391,7 +391,7 @@ type sourcescanner struct {
 
 // Walk inside the source/reference repository
 func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
-	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 {
+	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 || strings.HasPrefix(f.Name(), "."){
 		return nil, nil
 	}
 
@@ -472,8 +472,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		if err != nil {
 			return err
 		}
-		//add file into scan list only when exists and not start with .
-		if fd != nil && !strings.HasPrefix(f.Name(), ".") {
+		if fd != nil {
 			sourceFiles = append(sourceFiles, fd)
 		}
 		return nil
@@ -563,3 +562,4 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	return nil
 }
+
