@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/etix/mirrorbits/config"
@@ -471,7 +472,8 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		if err != nil {
 			return err
 		}
-		if fd != nil {
+		//add file into scan list only when exists and not start with .
+		if fd != nil && !strings.HasPrefix(f.Name(), ".") {
 			sourceFiles = append(sourceFiles, fd)
 		}
 		return nil
