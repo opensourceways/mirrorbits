@@ -327,12 +327,14 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
+	log.Infof("client %s request file %s", remoteIP, fileInfo.Path)
 
 	mlist, excluded, err := h.mirrorSelector(ctx, h.cache, &fileInfo, clientInfo)
 
 	/* Handle errors */
 	fallback := false
 	if _, ok := err.(net.Error); ok || len(mlist) == 0 {
+		log.Errorf("failed to get mirror info, error: %v and mirror size %d", err, len(mlist))
 		/* Handle fallbacks */
 		fallbacks := GetConfig().Fallbacks
 		if len(fallbacks) > 0 {

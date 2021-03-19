@@ -60,7 +60,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 
 	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", "--exclude=.~tmp~/", u.String())
 
-	// Setup the environnement
+	// Setup the environment
 	cmd.Env = env
 
 	stdout, err := cmd.StdoutPipe()
