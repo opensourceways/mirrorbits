@@ -53,13 +53,15 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 			}
 			goto discard
 		}
-		if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTPS"
-			goto discard
-		}
-		if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTP"
-			goto discard
+		if GetConfig().SchemaStrictMatch {
+			if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
+				m.ExcludeReason = "Not HTTPS"
+				goto discard
+			}
+			if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
+				m.ExcludeReason = "Not HTTP"
+				goto discard
+			}
 		}
 		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {

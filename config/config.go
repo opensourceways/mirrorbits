@@ -59,6 +59,7 @@ func defaultConfig() Configuration {
 		DisableOnMissingFile:    false,
 		RPCListenAddress:        "localhost:3390",
 		RPCPassword:             "",
+		SchemaStrictMatch:       true,
 	}
 }
 
@@ -87,6 +88,7 @@ type Configuration struct {
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
 	Fallbacks               []fallback `yaml:"Fallbacks"`
+	SchemaStrictMatch       bool       `yaml:"SchemaStrictMatch"`
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
 	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
