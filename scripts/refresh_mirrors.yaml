@@ -1,0 +1,3 @@
+fork_url: https://gitee.com/openeuler/infrastructure.git
+mirrors_dir: mirrors
+sleep_time: 3600
