@@ -11,6 +11,13 @@ LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 
+def judge_statement(command):
+    if os.system(command) != 0:
+        error_string = command + 'failed :('
+        logging.error(error_string)
+        sys.exit(1)
+
+
 def sync_and_refresh(n):
     temp_dir = tempfile.gettempdir()
     before_yaml_lst = []
@@ -23,14 +30,10 @@ def sync_and_refresh(n):
     for i in os.listdir('{}/{}'.format(fork_repo, mirrors_dir)):
         if i.endswith('.yaml'):
             before_yaml_lst.append(i)
-            if os.system('cp {} {}'.format(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i))) != 0:
-                logging.error('copy temp file failed :(')
-                sys.exit(1)
+            judge_statement('cp {} {}'.format(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i)))
     # git sync
     logging.info('git sync')
-    if os.system('cd {}; yes | git sync'.format(fork_repo)) != 0:
-        logging.error('git sync failed :(')
-        sys.exit(1)
+    judge_statement('yes | git sync')
     # after sync
     logging.info('after sync')
     if mirrors_dir not in os.listdir(fork_repo):
@@ -58,14 +61,12 @@ def sync_and_refresh(n):
                 sponsor_logo = mirror_info['SponsorLogoURL']
                 sponsor_name = mirror_info['SponsorName']
                 sponsor_url = mirror_info['SponsorURL']
-                if os.system(
-                    'mirrorbits add --name "{0}" -admin-email "{1}" -admin-name "{2}" -as-only "{3}" '
-                    '-continent-only "{4}" -country-only "{5}" -ftp "{6}" -http "{7}" -rsync "{8}" -score "{9}" '
-                    '-sponsor-logo "{10}" -sponsor-name "{11}" -sponsor-url "{12}"'.format(
-                        i[:-5], admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
-                        rsync_url, score, sponsor_logo, sponsor_name, sponsor_url)) != 0:
-                    logging.error('mirrorbits add failed :(')
-                    sys.exit(1)
+                command_string = 'mirrorbits add --name "{0}" -admin-email "{1}" -admin-name "{2}" -as-only "{3}" ' \
+                                 '-continent-only "{4}" -country-only "{5}" -ftp "{6}" -http "{7}" -rsync "{8}" ' \
+                                 '-score "{9}" -sponsor-logo "{10}" -sponsor-name "{11}" -sponsor-url "{12}"'.format(
+                    i[:-5], admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
+                    rsync_url, score, sponsor_logo, sponsor_name, sponsor_url)
+                judge_statement(command_string)
                 pt = PrettyTable(['Key', 'Value'])
                 logging.info('add a new mirror: {}, details are below'.format(i[:-5]))
                 pt.add_row('Name: {}'.format(i[:-5]))
@@ -89,21 +90,15 @@ def sync_and_refresh(n):
             if filecmp.cmp(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i), shallow=True):
                 continue
             else:
-                if os.system('mirrorbits edit {} -mirror-file {}'.format(i[:-5], os.path.abspath(i))) != 0:
-                    logging.error('mirrorbits edit failed :(')
-                    sys.exit(1)
+                judge_statement('mirrorbits edit {} -mirror-file {}'.format(i[:-5], os.path.abspath(i)))
                 logging.info('update mirror: {}'.format(i[:-5]))
     for i in before_yaml_lst:
         if i not in yaml_lst:
-            if os.system('mirrorbits remove {}'.format(i[:-5])) != 0:
-                logging.error('mirrorbits remove failed :(')
-                sys.exit(1)
+            judge_statement('mirrorbits remove {}'.format(i[:-5]))
             logging.info('remove mirror: {}'.format(i[:-5]))
     # clean temp files
     for i in before_yaml_lst:
-        if os.system('rm {}'.format(os.path.join(temp_dir, i))) != 0:
-            logging.error('remove temp file {} failed :('.format(os.path.join(temp_dir, i)))
-            sys.exit(1)
+        judge_statement('rm {}'.format(os.path.join(temp_dir, i)))
         logging.info('remove temp file {}'.format(os.path.join(temp_dir, i)))
     time.sleep(n)
 
@@ -117,9 +112,7 @@ if __name__ == '__main__':
     sleep_time = repo_info['sleep_time']
     # get remote repo code
     logging.info('get remote repo code')
-    if os.system('git clone {}'.format(fork_url)) != 0:
-        logging.error('git clone failed :(')
-        sys.exit(1)
+    judge_statement('git clone {}'.format(fork_url))
     if fork_repo not in os.listdir(os.getcwd()):
         logging.error('Error! directory {} does not exists. Check out whether failed in git clone.'.format(fork_repo))
     while True:
