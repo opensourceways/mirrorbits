@@ -5,7 +5,7 @@ LABEL maintainer="etix@l0cal.com"
 ADD . /go/mirrorbits
 
 RUN apt-get update -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config zlib1g-dev protobuf-compiler libprotoc-dev rsync && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config zlib1g-dev protobuf-compiler libprotoc-dev rsync python3 python3-pip git-extras && \
     apt-get clean
 # install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
 # and geoip folder is /usr/share/GeoIP
