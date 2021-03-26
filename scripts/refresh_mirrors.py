@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 def judge_statement(command):
     if os.system(command) != 0:
-        error_string = command + 'failed :('
+        error_string = command + '  failed :('
         logging.error(error_string)
         sys.exit(1)
 
@@ -33,7 +33,7 @@ def sync_and_refresh(n):
             judge_statement('cp {} {}'.format(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i)))
     # git sync
     logging.info('git sync')
-    judge_statement('yes | git sync')
+    judge_statement('cd {}; yes | git sync'.format(fork_repo))
     # after sync
     logging.info('after sync')
     if mirrors_dir not in os.listdir(fork_repo):
