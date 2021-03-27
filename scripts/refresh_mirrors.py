@@ -18,7 +18,80 @@ def judge_statement(command):
         sys.exit(1)
 
 
-def sync_and_refresh(n):
+def init_mirrors():
+    logging.info('start to init mirrors source info')
+    if fork_repo not in os.listdir(os.getcwd()):
+        logging.error('[init] Error! directory {} does not exists. Check out whether failed in git clone.'.format(fork_repo))
+        sys.exit(1)
+    current_mirrors = []
+    repo_mirrors = []
+    judge_statement('mirrorbits list > mirrors.txt')
+    with open('mirrors.txt', 'r') as f:
+        for line in f.readlines():
+            current_mirrors.append(line.split()[0])
+    current_mirrors = [(x + '.yaml') for x in current_mirrors[1:]]
+    judge_statement('rm mirrors.txt')
+    for i in os.listdir('{}/{}'.format(fork_repo, mirrors_dir)):
+        if i.endswith('.yaml'):
+            repo_mirrors.append(i)
+    for i in repo_mirrors:
+        if i not in current_mirrors:
+            f = open(os.path.join(fork_repo, mirrors_dir, i), 'r')
+            mirror_info = yaml.load(f.read(), Loader=yaml.Loader)
+            f.close()
+            mirror_name = mirror_info['Name']
+            if i[:-5] != mirror_name:
+                logging.error('Error! {}: filename does not match the name of the mirror'.format(i[:-5]))
+                sys.exit(1)
+            try:
+                admin_email = mirror_info['AdminEmail']
+                admin_name = mirror_info['AdminName']
+                as_only = mirror_info['ASOnly']
+                continent_only = mirror_info['ContinentOnly']
+                country_only = mirror_info['CountryOnly']
+                ftp_url = mirror_info['FtpURL']
+                http_url = mirror_info['HttpURL']
+                rsync_url = mirror_info['RsyncURL']
+                score = mirror_info['Score']
+                sponsor_logo = mirror_info['SponsorLogoURL']
+                sponsor_name = mirror_info['SponsorName']
+                sponsor_url = mirror_info['SponsorURL']
+                command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
+                                 '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
+                                 '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" {12}'.format(
+                    admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
+                    rsync_url, score, sponsor_logo, sponsor_name, sponsor_url, mirror_name)
+                judge_statement(command_string)
+                judge_statement('mirrorbits enable {}'.format(mirror_name))
+                pt = PrettyTable(['Key', 'Value'])
+                logging.info('[init] add a new mirror: {}, details are below'.format(i[:-5]))
+                pt.add_row(['Name', i[:-5]])
+                pt.add_row(['AdminEmail', admin_email])
+                pt.add_row(['AdminName', admin_name])
+                pt.add_row(['ASOnly', as_only])
+                pt.add_row(['ContinentOnly', continent_only])
+                pt.add_row(['CountryOnly', country_only])
+                pt.add_row(['FtpURL', ftp_url])
+                pt.add_row(['HttpURL', http_url])
+                pt.add_row(['RsyncURL', rsync_url])
+                pt.add_row(['Score', score])
+                pt.add_row(['SponsorLogoURL', sponsor_logo])
+                pt.add_row(['SponsorName', sponsor_name])
+                pt.add_row(['SponsorURL', sponsor_url])
+                logging.info('\n' + str(pt))
+            except KeyError as e:
+                logging.error(e)
+                exit(1)
+        else:
+            judge_statement('mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
+            logging.info('[init] update mirror: {}'.format(i[:-5]))
+    for i in current_mirrors:
+        if i not in repo_mirrors:
+            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
+            logging.info('[init] remove mirror: {}'.format(i[:-5]))
+
+
+def sync_and_refresh():
     temp_dir = tempfile.gettempdir()
     before_yaml_lst = []
     yaml_lst = []
@@ -48,6 +121,10 @@ def sync_and_refresh(n):
             f = open(os.path.join(fork_repo, mirrors_dir, i), 'r')
             mirror_info = yaml.load(f.read(), Loader=yaml.Loader)
             f.close()
+            mirror_name = mirror_info['Name']
+            if i[:-5] != mirror_name:
+                logging.error('Error! {}: filename does not match the name of the mirror'.format(i[:-5]))
+                sys.exit(1)
             try:
                 admin_email = mirror_info['AdminEmail']
                 admin_name = mirror_info['AdminName']
@@ -61,27 +138,28 @@ def sync_and_refresh(n):
                 sponsor_logo = mirror_info['SponsorLogoURL']
                 sponsor_name = mirror_info['SponsorName']
                 sponsor_url = mirror_info['SponsorURL']
-                command_string = 'mirrorbits add --name "{0}" -admin-email "{1}" -admin-name "{2}" -as-only "{3}" ' \
-                                 '-continent-only "{4}" -country-only "{5}" -ftp "{6}" -http "{7}" -rsync "{8}" ' \
-                                 '-score "{9}" -sponsor-logo "{10}" -sponsor-name "{11}" -sponsor-url "{12}"'.format(
-                    i[:-5], admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
-                    rsync_url, score, sponsor_logo, sponsor_name, sponsor_url)
+                command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
+                                 '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
+                                 '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" {12}'.format(
+                    admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
+                    rsync_url, score, sponsor_logo, sponsor_name, sponsor_url, mirror_name)
                 judge_statement(command_string)
+                judge_statement('mirrorbits enable {}'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
                 logging.info('add a new mirror: {}, details are below'.format(i[:-5]))
-                pt.add_row('Name: {}'.format(i[:-5]))
-                pt.add_row('AdminEmail: {}'.format(admin_email))
-                pt.add_row('AdminName: {}'.format(admin_name))
-                pt.add_row('ASOnly: {}'.format(as_only))
-                pt.add_row('ContinentOnly: {}'.format(continent_only))
-                pt.add_row('CountryOnly: {}'.format(country_only))
-                pt.add_row('FtpURL: {}'.format(ftp_url))
-                pt.add_row('HttpURL: {}'.format(http_url))
-                pt.add_row('RsyncURL: {}'.format(rsync_url))
-                pt.add_row('Score: {}'.format(score))
-                pt.add_row('SponsorLogoURL: {}'.format(sponsor_logo))
-                pt.add_row('SponsorName: {}'.format(sponsor_name))
-                pt.add_row('SponsorURL: {}'.format(sponsor_url))
+                pt.add_row(['Name', i[:-5]])
+                pt.add_row(['AdminEmail', admin_email])
+                pt.add_row(['AdminName', admin_name])
+                pt.add_row(['ASOnly', as_only])
+                pt.add_row(['ContinentOnly', continent_only])
+                pt.add_row(['CountryOnly', country_only])
+                pt.add_row(['FtpURL', ftp_url])
+                pt.add_row(['HttpURL', http_url])
+                pt.add_row(['RsyncURL', rsync_url])
+                pt.add_row(['Score', score])
+                pt.add_row(['SponsorLogoURL', sponsor_logo])
+                pt.add_row(['SponsorName', sponsor_name])
+                pt.add_row(['SponsorURL', sponsor_url])
                 logging.info('\n' + str(pt))
             except KeyError as e:
                 logging.error(e)
@@ -90,17 +168,17 @@ def sync_and_refresh(n):
             if filecmp.cmp(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i), shallow=True):
                 continue
             else:
-                judge_statement('mirrorbits edit {} -mirror-file {}'.format(i[:-5], os.path.abspath(i)))
+                judge_statement('mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
                 logging.info('update mirror: {}'.format(i[:-5]))
     for i in before_yaml_lst:
         if i not in yaml_lst:
-            judge_statement('mirrorbits remove {}'.format(i[:-5]))
+            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
             logging.info('remove mirror: {}'.format(i[:-5]))
     # clean temp files
     for i in before_yaml_lst:
         judge_statement('rm {}'.format(os.path.join(temp_dir, i)))
         logging.info('remove temp file {}'.format(os.path.join(temp_dir, i)))
-    time.sleep(n)
+    time.sleep(sleep_time)
 
 
 if __name__ == '__main__':
@@ -110,10 +188,12 @@ if __name__ == '__main__':
     fork_repo = fork_url.split('/')[-1].split('.')[0]
     mirrors_dir = repo_info['mirrors_dir']
     sleep_time = repo_info['sleep_time']
+    if fork_repo in os.listdir(os.getcwd()):
+        judge_statement('rm -rf {}'.format(fork_repo))
     # get remote repo code
     logging.info('get remote repo code')
     judge_statement('git clone {}'.format(fork_url))
-    if fork_repo not in os.listdir(os.getcwd()):
-        logging.error('Error! directory {} does not exists. Check out whether failed in git clone.'.format(fork_repo))
+    # init mirrors source info
+    init_mirrors()
     while True:
-        sync_and_refresh(sleep_time)
+        sync_and_refresh()
