@@ -225,7 +225,7 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 }
 
 //select mirrors based on file or directory
-func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error){
+func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
 	var fileList []*filesystem.FileInfo
 	localPath := path.Join(GetConfig().Repository, fileInfo.Path)
 	f, err := os.Stat(localPath)
@@ -241,7 +241,7 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 				return nil
 			}
 			// only collect ten files at most
-			if len(fileList) > 10  {
+			if len(fileList) > 10 {
 				return io.EOF
 			}
 			newFileInfo := filesystem.NewFileInfo(path[len(GetConfig().Repository):])
@@ -345,6 +345,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 					Name:          fmt.Sprintf("fallback%d", i),
 					HttpURL:       f.URL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
+					Country:       "China",
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
 					ContinentCode: strings.ToUpper(f.ContinentCode)})
 			}

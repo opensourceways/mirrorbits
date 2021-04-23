@@ -188,10 +188,26 @@ func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 		if err != nil {
 			return GeoIPRecord{}
 		}
-		ret.CountryCode = cityDb.Country.IsoCode
+		// Country code becomes country
+		//ret.CountryCode = cityDb.Country.IsoCode
+		isoCode := strings.ToUpper(cityDb.Country.IsoCode)
+		if isoCode == "TWN" || isoCode == "TPE" {
+			ret.CountryCode = "China"
+			ret.Country = "China"
+		} else if isoCode == "HK" ||
+			isoCode == "HKSAR" || isoCode == "HKG" {
+			ret.CountryCode = "China"
+			ret.Country = "China"
+		} else if isoCode == "MO" ||
+			isoCode == "MC" || isoCode == "OMA" {
+			ret.CountryCode = "China"
+			ret.Country = "China"
+		} else {
+			ret.CountryCode = cityDb.Country.Names.English
+			ret.Country = cityDb.Country.Names.English
+		}
 		ret.ContinentCode = cityDb.Continent.Code
 		ret.City = cityDb.City.Names.English
-		ret.Country = cityDb.Country.Names.English
 		ret.Latitude = float32(cityDb.Location.Latitude)
 		ret.Longitude = float32(cityDb.Location.Longitude)
 	}

@@ -271,6 +271,7 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 		mirror.ContinentCode = geoRec.ContinentCode
 		mirror.CountryCodes = geoRec.CountryCode
 		mirror.Asnum = geoRec.ASNum
+		mirror.Country = geoRec.Country
 
 		reply.Latitude = geoRec.Latitude
 		reply.Longitude = geoRec.Longitude
@@ -368,6 +369,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 
 	// Reformat contry codes
 	mirror.CountryCodes = utils.SanitizeLocationCodes(mirror.CountryCodes)
+	mirror.Country = utils.SanitizeLocationCodes(mirror.Country)
 	mirror.ExcludedCountryCodes = utils.SanitizeLocationCodes(mirror.ExcludedCountryCodes)
 
 	// Reformat continent code
@@ -406,6 +408,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"longitude", mirror.Longitude,
 		"continentCode", mirror.ContinentCode,
 		"countryCodes", mirror.CountryCodes,
+		"country", mirror.Country,
 		"excludedCountryCodes", mirror.ExcludedCountryCodes,
 		"asnum", mirror.Asnum,
 		"comment", mirror.Comment,
