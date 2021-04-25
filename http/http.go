@@ -275,10 +275,12 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 			for _, m := range mlist {
 				allMirrorList = append(allMirrorList, m)
 				mapMirror[m.Name] = m.Name
+				m.Country = m.CountryCodes
 			}
 		} else {
 			var tempMirror mirrors.Mirrors
 			for _, m := range mlist {
+				m.Country = m.CountryCodes
 				if _, ok := mapMirror[m.Name]; ok {
 					tempMirror = append(tempMirror, m)
 				}
@@ -662,6 +664,8 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		if err != nil {
 			continue
 		}
+		// test
+		mirror.Country = mirror.CountryCodes
 		mlist = append(mlist, mirror)
 
 		var downloads int64
