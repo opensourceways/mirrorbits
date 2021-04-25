@@ -203,7 +203,7 @@ func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 			ret.CountryCode = "CN"
 			ret.Country = "China"
 		} else {
-			ret.CountryCode = cityDb.Country.IsoCode
+			ret.CountryCode = isoCode
 			ret.Country = cityDb.Country.Names.English
 		}
 		ret.ContinentCode = cityDb.Continent.Code

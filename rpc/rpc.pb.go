@@ -203,6 +203,7 @@ type Mirror struct {
 	LastSync             *timestamp.Timestamp `protobuf:"bytes,28,opt,name=LastSync,proto3" json:"LastSync,omitempty"`
 	LastSuccessfulSync   *timestamp.Timestamp `protobuf:"bytes,29,opt,name=LastSuccessfulSync,proto3" json:"LastSuccessfulSync,omitempty"`
 	LastModTime          *timestamp.Timestamp `protobuf:"bytes,30,opt,name=LastModTime,proto3" json:"LastModTime,omitempty"`
+	Country              string               `protobuf:"bytes,31,opt,name=Country,proto3" json:"Country,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -362,6 +363,13 @@ func (m *Mirror) GetContinentCode() string {
 func (m *Mirror) GetCountryCodes() string {
 	if m != nil {
 		return m.CountryCodes
+	}
+	return ""
+}
+
+func (m *Mirror) GetCountry() string {
+	if m != nil {
+		return m.Country
 	}
 	return ""
 }

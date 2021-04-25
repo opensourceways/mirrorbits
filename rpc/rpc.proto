@@ -68,6 +68,7 @@ message Mirror {
     google.protobuf.Timestamp LastSync = 28;
     google.protobuf.Timestamp LastSuccessfulSync = 29;
     google.protobuf.Timestamp LastModTime = 30;
+    string Country = 31;
 }
 
 message MirrorListReply {
