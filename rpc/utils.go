@@ -97,7 +97,6 @@ func MirrorFromRPC(m *Mirror) (*mirrors.Mirror, error) {
 		Longitude:            m.Longitude,
 		ContinentCode:        m.ContinentCode,
 		CountryCodes:         m.CountryCodes,
-		Country:              m.Country,
 		ExcludedCountryCodes: m.ExcludedCountryCodes,
 		Asnum:                uint(m.Asnum),
 		Comment:              m.Comment,
@@ -109,5 +108,6 @@ func MirrorFromRPC(m *Mirror) (*mirrors.Mirror, error) {
 		LastSync:             mirrors.Time{}.FromTime(lastSync),
 		LastSuccessfulSync:   mirrors.Time{}.FromTime(lastSuccessfulSync),
 		LastModTime:          mirrors.Time{}.FromTime(lastModTime),
+		Country:              m.Country,
 	}, nil
 }

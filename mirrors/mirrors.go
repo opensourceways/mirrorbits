@@ -40,7 +40,7 @@ type Mirror struct {
 	Longitude                   float32          `redis:"longitude" yaml:"Longitude"`
 	ContinentCode               string           `redis:"continentCode" yaml:"ContinentCode"`
 	CountryCodes                string           `redis:"countryCodes" yaml:"CountryCodes"`
-	Country                     string           `redis:"Country" yaml:"Country"`
+	Country                     string           `redis:"country" yaml:"Country"`
 	ExcludedCountryCodes        string           `redis:"excludedCountryCodes" yaml:"ExcludedCountryCodes"`
 	Asnum                       uint             `redis:"asnum" yaml:"ASNum"`
 	Comment                     string           `redis:"comment" yaml:"-"`
