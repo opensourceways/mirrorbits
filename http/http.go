@@ -340,12 +340,16 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		if len(fallbacks) > 0 {
 			fallback = true
 			for i, f := range fallbacks {
+				country := ""
+				if strings.ToUpper(f.CountryCode) == "CN" {
+					country = "China"
+				}
 				mlist = append(mlist, mirrors.Mirror{
 					ID:            i * -1,
 					Name:          fmt.Sprintf("fallback%d", i),
 					HttpURL:       f.URL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
-					Country:       "China",
+					Country:       country,
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
 					ContinentCode: strings.ToUpper(f.ContinentCode)})
 			}
