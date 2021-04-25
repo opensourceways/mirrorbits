@@ -369,7 +369,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 
 	// Reformat contry codes
 	mirror.CountryCodes = utils.SanitizeLocationCodes(mirror.CountryCodes)
-	mirror.Country = utils.SanitizeLocationCodes(mirror.Country)
+	//mirror.Country = utils.SanitizeLocationCodes(mirror.Country)
 	mirror.ExcludedCountryCodes = utils.SanitizeLocationCodes(mirror.ExcludedCountryCodes)
 
 	// Reformat continent code

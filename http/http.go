@@ -341,7 +341,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			fallback = true
 			for i, f := range fallbacks {
 				country := ""
-				if strings.ToUpper(f.CountryCode) == "CN" {
+				if strings.ToUpper(f.CountryCode) == "CN" || strings.ToUpper(f.CountryCode) == "CHINA"{
 					country = "China"
 				}
 				mlist = append(mlist, mirrors.Mirror{
