@@ -276,6 +276,7 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 		reply.Latitude = geoRec.Latitude
 		reply.Longitude = geoRec.Longitude
 		reply.Continent = geoRec.ContinentCode
+		reply.Country = geoRec.Country
 		reply.ASN = fmt.Sprintf("%s (%d)", geoRec.ASName, geoRec.ASNum)
 	} else {
 		reply.Warnings = append(reply.Warnings,
