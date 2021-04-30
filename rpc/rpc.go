@@ -312,8 +312,23 @@ func (c *CLI) UpdateMirror(ctx context.Context, in *Mirror) (*UpdateMirrorReply,
 		return nil, err
 	}
 
+	// Edit the mirrors to add the value of the country field
+	if len(mirror.Country) < 2 {
+		u, err := url.Parse(mirror.HttpURL)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't parse http url")
+		}
+		ip, err := network.LookupMirrorIP(u.Host)
+		geo := network.NewGeoIP()
+		if err := geo.LoadGeoIP(); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		geoRec := geo.GetRecord(ip)
+		if geoRec.IsValid() {
+			mirror.Country = geoRec.Country
+		}
+	}
 	diff := createDiff(&original, mirror)
-
 	return &UpdateMirrorReply{
 		Diff: diff,
 	}, c.setMirror(mirror)
