@@ -551,17 +551,18 @@ func GetSingle(list []*rpc.MirrorID) (int, string, error) {
 
 func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool {
 	if mirror.HttpURL == updateMirror.HttpURL &&
-			mirror.RsyncURL == updateMirror.RsyncURL &&
-			mirror.FtpURL == updateMirror.FtpURL &&
-			mirror.SponsorName == updateMirror.SponsorName &&
-			mirror.SponsorURL == updateMirror.SponsorURL &&
-			mirror.AdminName == updateMirror.AdminName &&
-			mirror.AdminEmail == updateMirror.AdminEmail &&
-			mirror.ContinentOnly == updateMirror.ContinentOnly &&
-			mirror.CountryOnly == updateMirror.CountryOnly &&
-			mirror.ASOnly == updateMirror.ASOnly &&
-			mirror.Score == updateMirror.Score &&
-			mirror.Enabled == updateMirror.Enabled {
+		mirror.RsyncURL == updateMirror.RsyncURL &&
+		mirror.FtpURL == updateMirror.FtpURL &&
+		mirror.SponsorName == updateMirror.SponsorName &&
+		mirror.SponsorURL == updateMirror.SponsorURL &&
+		mirror.AdminName == updateMirror.AdminName &&
+		mirror.AdminEmail == updateMirror.AdminEmail &&
+		mirror.ContinentOnly == updateMirror.ContinentOnly &&
+		mirror.CountryOnly == updateMirror.CountryOnly &&
+		mirror.ASOnly == updateMirror.ASOnly &&
+		mirror.Score == updateMirror.Score &&
+		mirror.Enabled == updateMirror.Enabled &&
+		mirror.SponsorLogoURL == updateMirror.SponsorLogoURL {
 		return false
 	}
 	mirror.HttpURL = updateMirror.HttpURL
@@ -576,6 +577,7 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 	mirror.ASOnly = updateMirror.ASOnly
 	mirror.Score = updateMirror.Score
 	mirror.Enabled = updateMirror.Enabled
+	mirror.SponsorLogoURL = updateMirror.SponsorLogoURL
 	return true
 }
 
