@@ -365,6 +365,22 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	tempMlist := make([]mirrors.Mirror, len(mlist))
+	for _, ml := range mlist {
+		if ml.CountryCodes == "TWN" || ml.CountryCodes == "TPE" || ml.CountryCodes == "TW"{
+			ml.CountryCodes = "CN"
+			ml.Country = "China"
+		} else if ml.CountryCodes == "HK" ||
+			ml.CountryCodes == "HKSAR" || ml.CountryCodes == "HKG" {
+			ml.CountryCodes = "CN"
+			ml.Country = "China"
+		} else if ml.CountryCodes == "MO" ||
+			ml.CountryCodes == "MC" || ml.CountryCodes == "OMA" {
+			ml.CountryCodes = "CN"
+			ml.Country = "China"
+		}
+		tempMlist = append(tempMlist, ml)
+	}
 
 	results := &mirrors.Results{
 		FileInfo:     fileInfo,
@@ -708,6 +724,18 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 				HumanReadable: utils.FuzzyTimeStr(elapsed),
 			},
 			TZOffset: tzoffset,
+		}
+		if mirror.CountryCodes == "TWN" || mirror.CountryCodes == "TPE" || mirror.CountryCodes == "TW"{
+			mirror.CountryCodes = "CN"
+			mirror.Country = "China"
+		} else if mirror.CountryCodes == "HK" ||
+			mirror.CountryCodes == "HKSAR" || mirror.CountryCodes == "HKG" {
+			mirror.CountryCodes = "CN"
+			mirror.Country = "China"
+		} else if mirror.CountryCodes == "MO" ||
+			mirror.CountryCodes == "MC" || mirror.CountryCodes == "OMA" {
+			mirror.CountryCodes = "CN"
+			mirror.Country = "China"
 		}
 		// construct json results
 		js := MirrorStatsExtended{
