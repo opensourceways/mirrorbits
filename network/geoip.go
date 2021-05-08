@@ -191,7 +191,7 @@ func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 		// Country code becomes country
 		//ret.CountryCode = cityDb.Country.IsoCode
 		isoCode := strings.ToUpper(cityDb.Country.IsoCode)
-		if isoCode == "TWN" || isoCode == "TPE" {
+		if isoCode == "TWN" || isoCode == "TPE" || isoCode == "TW"{
 			ret.CountryCode = "CN"
 			ret.Country = "China"
 		} else if isoCode == "HK" ||
