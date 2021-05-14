@@ -34,6 +34,10 @@ def init_mirrors():
     for i in os.listdir('{}/{}'.format(fork_repo, mirrors_dir)):
         if i.endswith('.yaml'):
             repo_mirrors.append(i)
+    for i in current_mirrors:
+        if i not in repo_mirrors:
+            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
+            logging.info('[init] remove mirror: {}'.format(i[:-5]))
     for i in repo_mirrors:
         if i not in current_mirrors:
             f = open(os.path.join(fork_repo, mirrors_dir, i), 'r')
@@ -85,10 +89,6 @@ def init_mirrors():
         else:
             judge_statement('mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
             logging.info('[init] update mirror: {}'.format(i[:-5]))
-    for i in current_mirrors:
-        if i not in repo_mirrors:
-            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
-            logging.info('[init] remove mirror: {}'.format(i[:-5]))
 
 
 def sync_and_refresh():
@@ -116,6 +116,10 @@ def sync_and_refresh():
         if i.endswith('.yaml'):
             yaml_lst.append(i)
     # update mirrors info
+    for i in before_yaml_lst:
+        if i not in yaml_lst:
+            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
+            logging.info('remove mirror: {}'.format(i[:-5]))
     for i in yaml_lst:
         if i not in before_yaml_lst:
             f = open(os.path.join(fork_repo, mirrors_dir, i), 'r')
@@ -170,10 +174,6 @@ def sync_and_refresh():
             else:
                 judge_statement('mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
                 logging.info('update mirror: {}'.format(i[:-5]))
-    for i in before_yaml_lst:
-        if i not in yaml_lst:
-            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
-            logging.info('remove mirror: {}'.format(i[:-5]))
     # clean temp files
     for i in before_yaml_lst:
         judge_statement('rm {}'.format(os.path.join(temp_dir, i)))
