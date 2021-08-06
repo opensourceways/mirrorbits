@@ -266,15 +266,18 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 
 	geoRec := geo.GetRecord(ip)
 	if geoRec.IsValid() {
-		mirror.Latitude = geoRec.Latitude
-		mirror.Longitude = geoRec.Longitude
+		if mirror.Latitude == 0 {
+			mirror.Latitude = geoRec.Latitude
+		}
+		if mirror.Longitude == 0 {
+			mirror.Longitude = geoRec.Longitude
+		}
 		mirror.ContinentCode = geoRec.ContinentCode
 		mirror.CountryCodes = geoRec.CountryCode
 		mirror.Asnum = geoRec.ASNum
 		mirror.Country = geoRec.Country
-
-		reply.Latitude = geoRec.Latitude
-		reply.Longitude = geoRec.Longitude
+		reply.Latitude = mirror.Latitude
+		reply.Longitude = mirror.Longitude
 		reply.Continent = geoRec.ContinentCode
 		reply.ASN = fmt.Sprintf("%s (%d)", geoRec.ASName, geoRec.ASNum)
 	} else {
@@ -326,6 +329,15 @@ func (c *CLI) UpdateMirror(ctx context.Context, in *Mirror) (*UpdateMirrorReply,
 		geoRec := geo.GetRecord(ip)
 		if geoRec.IsValid() {
 			mirror.Country = geoRec.Country
+			if mirror.Latitude == 0 {
+				mirror.Latitude = geoRec.Latitude
+			}
+			if mirror.Longitude == 0 {
+				mirror.Longitude = geoRec.Longitude
+			}
+			mirror.ContinentCode = geoRec.ContinentCode
+			mirror.CountryCodes = geoRec.CountryCode
+			mirror.Asnum = geoRec.ASNum
 		}
 	}
 	diff := createDiff(&original, mirror)
@@ -420,6 +432,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"score", mirror.Score,
 		"latitude", mirror.Latitude,
 		"longitude", mirror.Longitude,
+		"netBandwidth", mirror.NetBandwidth,
 		"continentCode", mirror.ContinentCode,
 		"countryCodes", mirror.CountryCodes,
 		"country", mirror.Country,
