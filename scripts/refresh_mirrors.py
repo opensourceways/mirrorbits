@@ -15,7 +15,6 @@ def judge_statement(command):
     if os.system(command) != 0:
         error_string = command + '  failed :('
         logging.error(error_string)
-        sys.exit(1)
 
 
 def init_mirrors():
