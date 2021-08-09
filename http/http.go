@@ -225,7 +225,8 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 }
 
 //select mirrors based on file or directory
-func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
+func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo,
+	clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
 	var fileList []*filesystem.FileInfo
 	localPath := path.Join(GetConfig().Repository, fileInfo.Path)
 	f, err := os.Stat(localPath)
@@ -547,7 +548,6 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-
 	fileInfo, err := h.cache.GetFileInfo(urlPath)
 	if err == redis.ErrNil {
 		http.NotFound(w, r)
@@ -557,9 +557,7 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
-
 	var hash string
-
 	if ctx.paramBool("md5") {
 		hash = fileInfo.Md5
 	} else if ctx.paramBool("sha1") {

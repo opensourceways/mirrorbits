@@ -162,6 +162,7 @@ func (c *cli) CmdList(args ...string) error {
 	list, err := client.List(ctx, &empty.Empty{})
 	if err != nil {
 		log.Fatal("list error:", err)
+		return nil
 	}
 
 	sort.Sort(ByDate(list.Mirrors))
@@ -264,9 +265,12 @@ func (c *cli) CmdAdd(args ...string) error {
 	asOnly := cmd.Bool("as-only", false, "The mirror should only handle clients in the same AS number")
 	score := cmd.Int("score", 0, "Weight to give to the mirror during selection")
 	comment := cmd.String("comment", "", "Comment")
+	netBandwidth := cmd.Int64("net-bandwidth", 1000, "The downstream network bandwidth defaults to 1000mb/s,Unit: mb/s")
+	latitude := cmd.Float64("Latitude", 0, "Latitude (-90~90)")
+	longitude := cmd.Float64("Longitude", 0, "Longitude (-180~180)")
 
 	if err := cmd.Parse(args); err != nil {
-		return nil
+		return err
 	}
 	if cmd.NArg() < 1 {
 		cmd.Usage()
@@ -309,6 +313,9 @@ func (c *cli) CmdAdd(args ...string) error {
 		ASOnly:         *asOnly,
 		Score:          *score,
 		Comment:        *comment,
+		NetBandwidth:   *netBandwidth,
+		Latitude:       float32(*latitude),
+		Longitude:      float32(*longitude),
 	}
 
 	client := c.GetRPC()
@@ -317,13 +324,16 @@ func (c *cli) CmdAdd(args ...string) error {
 	m, err := rpc.MirrorToRPC(mirror)
 	if err != nil {
 		log.Fatal("edit error:", err)
+		return err
 	}
 	reply, err := client.AddMirror(ctx, m)
 	if err != nil {
 		if err.Error() == rpc.ErrNameAlreadyTaken.Error() {
 			log.Fatalf("Mirror %s already exists!\n", mirror.Name)
+			return err
 		}
 		log.Fatal("edit error:", err)
+		return err
 	}
 
 	for i := 0; i < len(reply.Warnings); i++ {
@@ -342,10 +352,8 @@ func (c *cli) CmdAdd(args ...string) error {
 		fmt.Printf("ASN:       %s\n", reply.ASN)
 		fmt.Println("")
 	}
-
 	fmt.Printf("Mirror '%s' added successfully\n", mirror.Name)
 	fmt.Printf("Enable this mirror using\n  $ mirrorbits enable %s\n", mirror.Name)
-
 	return nil
 }
 
@@ -354,7 +362,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	force := cmd.Bool("f", false, "Never prompt for confirmation")
 
 	if err := cmd.Parse(args); err != nil {
-		return nil
+		return err
 	}
 	if cmd.NArg() != 1 {
 		cmd.Usage()
@@ -383,6 +391,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	})
 	if err != nil {
 		log.Fatal("remove error:", err)
+		return err
 	}
 
 	fmt.Printf("Mirror '%s' removed successfully\n", name)
@@ -398,7 +407,7 @@ func (c *cli) CmdScan(args ...string) error {
 	timeout := cmd.Uint("timeout", 0, "Timeout in seconds")
 
 	if err := cmd.Parse(args); err != nil {
-		return nil
+		return err
 	}
 	if !*all && cmd.NArg() != 1 || *all && cmd.NArg() != 0 {
 		cmd.Usage()
@@ -528,6 +537,7 @@ func (c *cli) matchMirror(pattern string) (id int, name string) {
 		id, name, err := GetSingle(reply.Mirrors)
 		if err != nil {
 			log.Fatal("unexpected error:", err)
+			os.Exit(1)
 		}
 		return id, name
 	default:
@@ -562,7 +572,10 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 		mirror.ASOnly == updateMirror.ASOnly &&
 		mirror.Score == updateMirror.Score &&
 		mirror.Enabled == updateMirror.Enabled &&
-		mirror.SponsorLogoURL == updateMirror.SponsorLogoURL {
+		mirror.SponsorLogoURL == updateMirror.SponsorLogoURL &&
+		mirror.NetBandwidth == updateMirror.NetBandwidth &&
+		mirror.Latitude == updateMirror.Latitude &&
+		mirror.Longitude == updateMirror.Longitude {
 		return false
 	}
 	mirror.HttpURL = updateMirror.HttpURL
@@ -578,6 +591,9 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 	mirror.Score = updateMirror.Score
 	mirror.Enabled = updateMirror.Enabled
 	mirror.SponsorLogoURL = updateMirror.SponsorLogoURL
+	mirror.NetBandwidth = updateMirror.NetBandwidth
+	mirror.Latitude = updateMirror.Latitude
+	mirror.Longitude = updateMirror.Longitude
 	return true
 }
 
@@ -585,7 +601,8 @@ func (c *cli) CmdEdit(args ...string) error {
 	cmd := SubCmd("edit", "[IDENTIFIER]", "Edit a mirror")
 	mirrorFile := cmd.String("mirror-file", "", "File path used to update mirror")
 	if err := cmd.Parse(args); err != nil {
-		return nil
+		log.Fatal("CmdEdit, mirror-file error:", err)
+		return err
 	}
 	if cmd.NArg() != 1 {
 		cmd.Usage()
@@ -601,27 +618,33 @@ func (c *cli) CmdEdit(args ...string) error {
 	})
 	if err != nil {
 		log.Fatal("edit error:", err)
+		return err
 	}
 	mirror, err := rpc.MirrorFromRPC(rpcm)
 	if err != nil {
 		log.Fatal("edit error:", err)
+		return err
 	}
 	if *mirrorFile != "" {
 		if _, err := os.Stat(*mirrorFile); os.IsNotExist(err) {
 			log.Fatalf("mirror file not existed: %s", *mirrorFile)
+			return err
 		}
 		// Update mirror directly
 		updateMirror, err := ioutil.ReadFile(*mirrorFile)
 		if err != nil {
 			log.Fatalf("cannot read file %s", *mirrorFile)
+			return err
 		}
 		var newMirror *mirrors.Mirror
 		err = yaml.Unmarshal(updateMirror, &newMirror)
 		if err != nil {
 			log.Fatalf("cannot unmarshal update file into yaml object %v", *mirrorFile)
+			return err
 		}
 		if newMirror.Name != cmd.Arg(0) {
 			log.Fatalf("mirror name in file %s is not equal to command specified name %s.", mirror.Name, cmd.Arg(0))
+			return err
 		}
 		if updated := CompareAndUpdate(mirror, newMirror); !updated {
 			log.Info("mirror update ignored due to attribute equal")
@@ -632,10 +655,12 @@ func (c *cli) CmdEdit(args ...string) error {
 		m, err := rpc.MirrorToRPC(mirror)
 		if err != nil {
 			log.Fatal("edit error:", err)
+			return err
 		}
 		reply, err := client.UpdateMirror(ctx, m)
 		if err != nil {
 			log.Fatal("edit error:", err)
+			return err
 		}
 		if len(reply.Diff) > 0 {
 			fmt.Println(reply.Diff)

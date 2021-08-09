@@ -69,6 +69,7 @@ message Mirror {
     google.protobuf.Timestamp LastSuccessfulSync = 29;
     google.protobuf.Timestamp LastModTime = 30;
     string Country = 31;
+    int64 NetBandwidth = 32;
 }
 
 message MirrorListReply {
@@ -100,6 +101,7 @@ message AddMirrorReply {
     string Continent = 4;
     string ASN = 5;
     repeated string Warnings = 6;
+    int64 NetBandwidth = 7;
 }
 
 message UpdateMirrorReply {
