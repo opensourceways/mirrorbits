@@ -266,8 +266,8 @@ func (c *cli) CmdAdd(args ...string) error {
 	score := cmd.Int("score", 0, "Weight to give to the mirror during selection")
 	comment := cmd.String("comment", "", "Comment")
 	netBandwidth := cmd.Int64("net-bandwidth", 1000, "The downstream network bandwidth defaults to 1000mb/s,Unit: mb/s")
-	latitude := cmd.Float64("Latitude", 0, "Latitude (-90~90)")
-	longitude := cmd.Float64("Longitude", 0, "Longitude (-180~180)")
+	latitude := cmd.Float64("latitude", 0, "latitude (-90~90)")
+	longitude := cmd.Float64("longitude", 0, "longitude (-180~180)")
 
 	if err := cmd.Parse(args); err != nil {
 		return err
