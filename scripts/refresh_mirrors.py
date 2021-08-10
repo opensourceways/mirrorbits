@@ -20,7 +20,8 @@ def judge_statement(command):
 def init_mirrors():
     logging.info('start to init mirrors source info')
     if fork_repo not in os.listdir(os.getcwd()):
-        logging.error('[init] Error! directory {} does not exists. Check out whether failed in git clone.'.format(fork_repo))
+        logging.error(
+            '[init] Error! directory {} does not exists. Check out whether failed in git clone.'.format(fork_repo))
         sys.exit(1)
     current_mirrors = []
     repo_mirrors = []
@@ -59,11 +60,28 @@ def init_mirrors():
                 sponsor_logo = mirror_info['SponsorLogoURL']
                 sponsor_name = mirror_info['SponsorName']
                 sponsor_url = mirror_info['SponsorURL']
+                net_bandwidth = mirror_info['NetworkBandwidth']
+                latitude = mirror_info['Latitude']
+                longitude = mirror_info['Longitude']
                 command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
-                                 '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" {12}'.format(
-                    admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
-                    rsync_url, score, sponsor_logo, sponsor_name, sponsor_url, mirror_name)
+                                 '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
+                                 '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" {15}'.format(admin_email,
+                                                                                                        admin_name,
+                                                                                                        as_only,
+                                                                                                        continent_only,
+                                                                                                        country_only,
+                                                                                                        ftp_url,
+                                                                                                        http_url,
+                                                                                                        rsync_url,
+                                                                                                        score,
+                                                                                                        sponsor_logo,
+                                                                                                        sponsor_name,
+                                                                                                        sponsor_url,
+                                                                                                        net_bandwidth,
+                                                                                                        latitude,
+                                                                                                        longitude,
+                                                                                                        mirror_name)
                 judge_statement(command_string)
                 judge_statement('mirrorbits enable {}'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
@@ -81,12 +99,17 @@ def init_mirrors():
                 pt.add_row(['SponsorLogoURL', sponsor_logo])
                 pt.add_row(['SponsorName', sponsor_name])
                 pt.add_row(['SponsorURL', sponsor_url])
+                pt.add_row(['NetBandwidth', net_bandwidth])
+                pt.add_row(['Latitude', latitude])
+                pt.add_row(['Longitude', longitude])
                 logging.info('\n' + str(pt))
             except KeyError as e:
                 logging.error(e)
                 exit(1)
         else:
-            judge_statement('mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
+            judge_statement(
+                'mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)),
+                                                            i[:-5]))
             logging.info('[init] update mirror: {}'.format(i[:-5]))
 
 
@@ -141,11 +164,28 @@ def sync_and_refresh():
                 sponsor_logo = mirror_info['SponsorLogoURL']
                 sponsor_name = mirror_info['SponsorName']
                 sponsor_url = mirror_info['SponsorURL']
+                net_bandwidth = mirror_info['NetworkBandwidth']
+                latitude = mirror_info['Latitude']
+                longitude = mirror_info['Longitude']
                 command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
-                                 '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" {12}'.format(
-                    admin_email, admin_name, as_only, continent_only, country_only, ftp_url, http_url,
-                    rsync_url, score, sponsor_logo, sponsor_name, sponsor_url, mirror_name)
+                                 '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
+                                 '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" {15}'.format(admin_email,
+                                                                                                        admin_name,
+                                                                                                        as_only,
+                                                                                                        continent_only,
+                                                                                                        country_only,
+                                                                                                        ftp_url,
+                                                                                                        http_url,
+                                                                                                        rsync_url,
+                                                                                                        score,
+                                                                                                        sponsor_logo,
+                                                                                                        sponsor_name,
+                                                                                                        sponsor_url,
+                                                                                                        net_bandwidth,
+                                                                                                        latitude,
+                                                                                                        longitude,
+                                                                                                        mirror_name)
                 judge_statement(command_string)
                 judge_statement('mirrorbits enable {}'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
@@ -163,6 +203,9 @@ def sync_and_refresh():
                 pt.add_row(['SponsorLogoURL', sponsor_logo])
                 pt.add_row(['SponsorName', sponsor_name])
                 pt.add_row(['SponsorURL', sponsor_url])
+                pt.add_row(['NetBandwidth', net_bandwidth])
+                pt.add_row(['Latitude', latitude])
+                pt.add_row(['Longitude', longitude])
                 logging.info('\n' + str(pt))
             except KeyError as e:
                 logging.error(e)
@@ -171,7 +214,8 @@ def sync_and_refresh():
             if filecmp.cmp(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i), shallow=True):
                 continue
             else:
-                judge_statement('mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
+                judge_statement('mirrorbits edit -mirror-file {} {}'.format(
+                    os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
                 logging.info('update mirror: {}'.format(i[:-5]))
     # clean temp files
     for i in before_yaml_lst:
@@ -196,3 +240,4 @@ if __name__ == '__main__':
     init_mirrors()
     while True:
         sync_and_refresh()
+
