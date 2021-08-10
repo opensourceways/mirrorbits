@@ -43,7 +43,6 @@ func MirrorToRPC(m *mirrors.Mirror) (*Mirror, error) {
 		Score:                int32(m.Score),
 		Latitude:             m.Latitude,
 		Longitude:            m.Longitude,
-		NetBandwidth:         m.NetBandwidth,
 		ContinentCode:        m.ContinentCode,
 		CountryCodes:         m.CountryCodes,
 		ExcludedCountryCodes: m.ExcludedCountryCodes,
@@ -58,6 +57,7 @@ func MirrorToRPC(m *mirrors.Mirror) (*Mirror, error) {
 		LastSuccessfulSync:   lastSuccessfulSync,
 		LastModTime:          lastModTime,
 		Country:              m.Country,
+		NetBandwidth:         m.NetBandwidth,
 	}, nil
 }
 
@@ -96,7 +96,6 @@ func MirrorFromRPC(m *Mirror) (*mirrors.Mirror, error) {
 		Score:                int(m.Score),
 		Latitude:             m.Latitude,
 		Longitude:            m.Longitude,
-		NetBandwidth:         m.NetBandwidth,
 		ContinentCode:        m.ContinentCode,
 		CountryCodes:         m.CountryCodes,
 		ExcludedCountryCodes: m.ExcludedCountryCodes,
@@ -111,5 +110,6 @@ func MirrorFromRPC(m *Mirror) (*mirrors.Mirror, error) {
 		LastSuccessfulSync:   mirrors.Time{}.FromTime(lastSuccessfulSync),
 		LastModTime:          mirrors.Time{}.FromTime(lastModTime),
 		Country:              m.Country,
+		NetBandwidth:         m.NetBandwidth,
 	}, nil
 }
