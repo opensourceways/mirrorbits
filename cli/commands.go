@@ -149,6 +149,7 @@ func (c *cli) CmdList(args ...string) error {
 	down := cmd.Bool("down", false, "List only mirrors currently down")
 
 	if err := cmd.Parse(args); err != nil {
+		log.Fatal("err:", err)
 		return nil
 	}
 	if cmd.NArg() != 0 {
@@ -162,7 +163,7 @@ func (c *cli) CmdList(args ...string) error {
 	list, err := client.List(ctx, &empty.Empty{})
 	if err != nil {
 		log.Fatal("list error:", err)
-		return nil
+		return err
 	}
 
 	sort.Sort(ByDate(list.Mirrors))
@@ -270,7 +271,8 @@ func (c *cli) CmdAdd(args ...string) error {
 	longitude := cmd.Float64("longitude", 0, "longitude (-180~180)")
 
 	if err := cmd.Parse(args); err != nil {
-		return err
+		log.Fatal("err: ", err)
+		return nil
 	}
 	if cmd.NArg() < 1 {
 		cmd.Usage()
@@ -313,7 +315,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		ASOnly:         *asOnly,
 		Score:          *score,
 		Comment:        *comment,
-		NetBandwidth:   *netBandwidth,
+		NetBandwidth:   int32(*netBandwidth),
 		Latitude:       float32(*latitude),
 		Longitude:      float32(*longitude),
 	}
@@ -324,13 +326,11 @@ func (c *cli) CmdAdd(args ...string) error {
 	m, err := rpc.MirrorToRPC(mirror)
 	if err != nil {
 		log.Fatal("edit error:", err)
-		return err
 	}
 	reply, err := client.AddMirror(ctx, m)
 	if err != nil {
 		if err.Error() == rpc.ErrNameAlreadyTaken.Error() {
 			log.Fatalf("Mirror %s already exists!\n", mirror.Name)
-			return err
 		}
 		log.Fatal("edit error:", err)
 		return err
@@ -349,6 +349,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		fmt.Printf("Longitude: %.4f\n", reply.Longitude)
 		fmt.Printf("Continent: %s\n", reply.Continent)
 		fmt.Printf("Country:   %s\n", reply.Country)
+		fmt.Printf("NetBandwidth:   %s\n", reply.NetBandwidth)
 		fmt.Printf("ASN:       %s\n", reply.ASN)
 		fmt.Println("")
 	}
@@ -362,7 +363,8 @@ func (c *cli) CmdRemove(args ...string) error {
 	force := cmd.Bool("f", false, "Never prompt for confirmation")
 
 	if err := cmd.Parse(args); err != nil {
-		return err
+		log.Fatal("err: ", err)
+		return nil
 	}
 	if cmd.NArg() != 1 {
 		cmd.Usage()
@@ -407,7 +409,7 @@ func (c *cli) CmdScan(args ...string) error {
 	timeout := cmd.Uint("timeout", 0, "Timeout in seconds")
 
 	if err := cmd.Parse(args); err != nil {
-		return err
+		return nil
 	}
 	if !*all && cmd.NArg() != 1 || *all && cmd.NArg() != 0 {
 		cmd.Usage()
@@ -506,6 +508,7 @@ func (c *cli) CmdRefresh(args ...string) error {
 	if err != nil {
 		fmt.Println("")
 		log.Fatal(err)
+		return err
 	}
 
 	fmt.Println("done")
