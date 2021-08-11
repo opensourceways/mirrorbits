@@ -432,7 +432,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"score", mirror.Score,
 		"latitude", mirror.Latitude,
 		"longitude", mirror.Longitude,
-		"netBandwidth", mirror.NetBandwidth,
+		"networkBandwidth", mirror.NetworkBandwidth,
 		"continentCode", mirror.ContinentCode,
 		"countryCodes", mirror.CountryCodes,
 		"country", mirror.Country,

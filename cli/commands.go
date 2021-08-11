@@ -300,24 +300,24 @@ func (c *cli) CmdAdd(args ...string) error {
 	}
 
 	mirror := &mirrors.Mirror{
-		Name:           cmd.Arg(0),
-		HttpURL:        *http,
-		RsyncURL:       *rsync,
-		FtpURL:         *ftp,
-		SponsorName:    *sponsorName,
-		SponsorURL:     *sponsorURL,
-		SponsorLogoURL: *sponsorLogo,
-		AdminName:      *adminName,
-		AdminEmail:     *adminEmail,
-		CustomData:     *customData,
-		ContinentOnly:  *continentOnly,
-		CountryOnly:    *countryOnly,
-		ASOnly:         *asOnly,
-		Score:          *score,
-		Comment:        *comment,
-		NetBandwidth:   int32(*netBandwidth),
-		Latitude:       float32(*latitude),
-		Longitude:      float32(*longitude),
+		Name:             cmd.Arg(0),
+		HttpURL:          *http,
+		RsyncURL:         *rsync,
+		FtpURL:           *ftp,
+		SponsorName:      *sponsorName,
+		SponsorURL:       *sponsorURL,
+		SponsorLogoURL:   *sponsorLogo,
+		AdminName:        *adminName,
+		AdminEmail:       *adminEmail,
+		CustomData:       *customData,
+		ContinentOnly:    *continentOnly,
+		CountryOnly:      *countryOnly,
+		ASOnly:           *asOnly,
+		Score:            *score,
+		Comment:          *comment,
+		NetworkBandwidth: int32(*netBandwidth),
+		Latitude:         float32(*latitude),
+		Longitude:        float32(*longitude),
 	}
 
 	client := c.GetRPC()
@@ -349,7 +349,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		fmt.Printf("Longitude: %.4f\n", reply.Longitude)
 		fmt.Printf("Continent: %s\n", reply.Continent)
 		fmt.Printf("Country:   %s\n", reply.Country)
-		fmt.Printf("NetBandwidth:   %s\n", reply.NetBandwidth)
+		fmt.Printf("NetworkBandwidth:   %d\n", reply.NetworkBandwidth)
 		fmt.Printf("ASN:       %s\n", reply.ASN)
 		fmt.Println("")
 	}
@@ -576,7 +576,7 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 		mirror.Score == updateMirror.Score &&
 		mirror.Enabled == updateMirror.Enabled &&
 		mirror.SponsorLogoURL == updateMirror.SponsorLogoURL &&
-		mirror.NetBandwidth == updateMirror.NetBandwidth &&
+		mirror.NetworkBandwidth == updateMirror.NetworkBandwidth &&
 		mirror.Latitude == updateMirror.Latitude &&
 		mirror.Longitude == updateMirror.Longitude {
 		return false
@@ -594,7 +594,7 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 	mirror.Score = updateMirror.Score
 	mirror.Enabled = updateMirror.Enabled
 	mirror.SponsorLogoURL = updateMirror.SponsorLogoURL
-	mirror.NetBandwidth = updateMirror.NetBandwidth
+	mirror.NetworkBandwidth = updateMirror.NetworkBandwidth
 	mirror.Latitude = updateMirror.Latitude
 	mirror.Longitude = updateMirror.Longitude
 	return true

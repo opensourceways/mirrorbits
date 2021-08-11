@@ -38,7 +38,7 @@ type Mirror struct {
 	Score                       int              `redis:"score" yaml:"Score"`
 	Latitude                    float32          `redis:"latitude" yaml:"Latitude"`
 	Longitude                   float32          `redis:"longitude" yaml:"Longitude"`
-	NetBandwidth                int32            `redis:"netBandwidth" yaml:"NetworkBandwidth"`
+	NetworkBandwidth            int32            `redis:"networkBandwidth" yaml:"NetworkBandwidth"`
 	ContinentCode               string           `redis:"continentCode" yaml:"ContinentCode"`
 	CountryCodes                string           `redis:"countryCodes" yaml:"CountryCodes"`
 	Country                     string           `redis:"country" yaml:"Country"`
