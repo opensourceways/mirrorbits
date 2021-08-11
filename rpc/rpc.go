@@ -250,7 +250,7 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 	}
 
 	reply := &AddMirrorReply{}
-
+	reply.NetworkBandwidth = mirror.NetworkBandwidth
 	ip, err := network.LookupMirrorIP(u.Host)
 	if err == network.ErrMultipleAddresses {
 		reply.Warnings = append(reply.Warnings,

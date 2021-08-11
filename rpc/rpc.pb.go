@@ -204,7 +204,7 @@ type Mirror struct {
 	LastSuccessfulSync   *timestamp.Timestamp `protobuf:"bytes,29,opt,name=LastSuccessfulSync,proto3" json:"LastSuccessfulSync,omitempty"`
 	LastModTime          *timestamp.Timestamp `protobuf:"bytes,30,opt,name=LastModTime,proto3" json:"LastModTime,omitempty"`
 	Country              string               `protobuf:"bytes,31,opt,name=Country,proto3" json:"Country,omitempty"`
-	NetworkBandwidth     int32                `protobuf:"varint,32,opt,name=NetworkBandwidth,proto3" json:"NetworkBandwidth,omitempty"`
+	NetworkBandwidth     string               `protobuf:"bytes,32,opt,name=NetworkBandwidth,proto3" json:"NetworkBandwidth,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -670,7 +670,7 @@ type AddMirrorReply struct {
 	Continent            string   `protobuf:"bytes,4,opt,name=Continent,proto3" json:"Continent,omitempty"`
 	ASN                  string   `protobuf:"bytes,5,opt,name=ASN,proto3" json:"ASN,omitempty"`
 	Warnings             []string `protobuf:"bytes,6,rep,name=Warnings,proto3" json:"Warnings,omitempty"`
-	NetworkBandwidth     int32    `protobuf:"varint,7,opt,name=NetworkBandwidth,proto3" json:"NetworkBandwidth,omitempty"`
+	NetworkBandwidth     string   `protobuf:"bytes,7,opt,name=NetworkBandwidth,proto3" json:"NetworkBandwidth,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -743,11 +743,11 @@ func (m *AddMirrorReply) GetWarnings() []string {
 	return nil
 }
 
-func (m *AddMirrorReply) GetNetworkBandwidth() int32 {
+func (m *AddMirrorReply) GetNetworkBandwidth() string {
 	if m != nil {
 		return m.NetworkBandwidth
 	}
-	return nil
+	return 0
 }
 
 type UpdateMirrorReply struct {
