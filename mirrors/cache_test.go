@@ -11,9 +11,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/network"
-	. "github.com/etix/mirrorbits/testing"
+	"github.com/opensourceways/mirrorbits/filesystem"
+	"github.com/opensourceways/mirrorbits/network"
+	. "github.com/opensourceways/mirrorbits/testing"
 	"github.com/gomodule/redigo/redis"
 	_ "github.com/rafaeljusto/redigomock"
 )

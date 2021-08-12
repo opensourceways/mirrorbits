@@ -6,8 +6,8 @@ package v1
 import (
 	"fmt"
 
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/database/interfaces"
+	"github.com/opensourceways/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/database/interfaces"
 	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
 )

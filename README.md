@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/etix/mirrorbits.svg?branch=master)](https://travis-ci.org/etix/mirrorbits)
-[![Go Report Card](https://goreportcard.com/badge/github.com/etix/mirrorbits)](https://goreportcard.com/report/github.com/etix/mirrorbits)
+[![Build Status](https://travis-ci.org/opensourceways/mirrorbits.svg?branch=master)](https://travis-ci.org/opensourceways/mirrorbits)
+[![Go Report Card](https://goreportcard.com/badge/github.com/opensourceways/mirrorbits)](https://goreportcard.com/report/github.com/opensourceways/mirrorbits)
 
 Mirrorbits
 ===========
@@ -65,15 +65,15 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 
 ## Upgrading
 
-Before upgrading to the latest version, please check [this guide](https://github.com/etix/mirrorbits/wiki/Upgrade-Guide).
+Before upgrading to the latest version, please check [this guide](https://github.com/opensourceways/mirrorbits/wiki/Upgrade-Guide).
 
 ## Installation
 
-You can either get a [prebuilt version](https://github.com/etix/mirrorbits/releases) or choose to build it yourself.
+You can either get a [prebuilt version](https://github.com/opensourceways/mirrorbits/releases) or choose to build it yourself.
 
 ### Docker
 
-A docker "quick start" can be found [on the wiki](https://github.com/etix/mirrorbits/wiki/Running-within-Docker).
+A docker "quick start" can be found [on the wiki](https://github.com/opensourceways/mirrorbits/wiki/Running-within-Docker).
 
 ### Manual build
 

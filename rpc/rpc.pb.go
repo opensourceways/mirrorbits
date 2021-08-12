@@ -747,7 +747,7 @@ func (m *AddMirrorReply) GetNetworkBandwidth() string {
 	if m != nil {
 		return m.NetworkBandwidth
 	}
-	return 0
+	return ""
 }
 
 type UpdateMirrorReply struct {

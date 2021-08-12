@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/network"
-	"github.com/etix/mirrorbits/utils"
+	. "github.com/opensourceways/mirrorbits/config"
+	"github.com/opensourceways/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/database"
+	"github.com/opensourceways/mirrorbits/filesystem"
+	"github.com/opensourceways/mirrorbits/network"
+	"github.com/opensourceways/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
 )
 
