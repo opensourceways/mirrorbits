@@ -266,7 +266,7 @@ func (c *cli) CmdAdd(args ...string) error {
 	asOnly := cmd.Bool("as-only", false, "The mirror should only handle clients in the same AS number")
 	score := cmd.Int("score", 0, "Weight to give to the mirror during selection")
 	comment := cmd.String("comment", "", "Comment")
-	netBandwidth := cmd.String("net-bandwidth", "1000", "The downstream network bandwidth defaults to 1000mb/s,Unit: mb/s")
+	netBandwidth := cmd.Int64("net-bandwidth", 1000, "The downstream network bandwidth defaults to 1000mb/s,Unit: mb/s")
 	latitude := cmd.Float64("latitude", 0, "latitude (-90~90)")
 	longitude := cmd.Float64("longitude", 0, "longitude (-180~180)")
 
@@ -315,7 +315,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		ASOnly:           *asOnly,
 		Score:            *score,
 		Comment:          *comment,
-		NetworkBandwidth: *netBandwidth,
+		NetworkBandwidth: int32(*netBandwidth),
 		Latitude:         float32(*latitude),
 		Longitude:        float32(*longitude),
 	}
@@ -349,7 +349,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		fmt.Printf("Longitude: %.4f\n", reply.Longitude)
 		fmt.Printf("Continent: %s\n", reply.Continent)
 		fmt.Printf("Country:   %s\n", reply.Country)
-		fmt.Printf("NetworkBandwidth:   %s\n", reply.NetworkBandwidth)
+		fmt.Printf("NetworkBandwidth:   %d\n", reply.NetworkBandwidth)
 		fmt.Printf("ASN:       %s\n", reply.ASN)
 		fmt.Println("")
 	}
