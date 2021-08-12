@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	. "github.com/etix/mirrorbits/config"
+	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/youtube/vitess/go/cgzip"
 )
 

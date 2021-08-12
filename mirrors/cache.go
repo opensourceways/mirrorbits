@@ -10,10 +10,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/network"
-	"github.com/etix/mirrorbits/utils"
+	"github.com/opensourceways/mirrorbits/database"
+	"github.com/opensourceways/mirrorbits/filesystem"
+	"github.com/opensourceways/mirrorbits/network"
+	"github.com/opensourceways/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
 )
 

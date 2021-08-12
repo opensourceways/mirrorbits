@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/network"
-	. "github.com/etix/mirrorbits/testing"
+	"github.com/opensourceways/mirrorbits/database"
+	"github.com/opensourceways/mirrorbits/network"
+	. "github.com/opensourceways/mirrorbits/testing"
 	"github.com/gomodule/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 )

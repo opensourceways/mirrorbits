@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/network"
-	"github.com/etix/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
+	. "github.com/opensourceways/mirrorbits/config"
+	"github.com/opensourceways/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/database"
+	"github.com/opensourceways/mirrorbits/filesystem"
+	"github.com/opensourceways/mirrorbits/network"
+	"github.com/opensourceways/mirrorbits/utils"
 )
 
 // Mirror is the structure representing all the information about a mirror
@@ -38,7 +38,7 @@ type Mirror struct {
 	Score                       int              `redis:"score" yaml:"Score"`
 	Latitude                    float32          `redis:"latitude" yaml:"Latitude"`
 	Longitude                   float32          `redis:"longitude" yaml:"Longitude"`
-	NetBandwidth                int32            `redis:"netBandwidth" yaml:"NetworkBandwidth"`
+	NetworkBandwidth            int32            `redis:"networkBandwidth" yaml:"NetworkBandwidth"`
 	ContinentCode               string           `redis:"continentCode" yaml:"ContinentCode"`
 	CountryCodes                string           `redis:"countryCodes" yaml:"CountryCodes"`
 	Country                     string           `redis:"country" yaml:"Country"`

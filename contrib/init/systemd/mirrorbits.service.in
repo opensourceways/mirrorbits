@@ -1,6 +1,6 @@
 [Unit]
 Description=Mirrorbits redirector
-Documentation=https://github.com/etix/mirrorbits
+Documentation=https://github.com/opensourceways/mirrorbits
 After=network.target
 
 [Service]

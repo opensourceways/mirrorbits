@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/etix/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/core"
 	"github.com/op/go-logging"
 )
 

@@ -9,8 +9,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/rpc"
+	"github.com/opensourceways/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/rpc"
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

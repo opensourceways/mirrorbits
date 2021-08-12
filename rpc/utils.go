@@ -4,7 +4,7 @@
 package rpc
 
 import (
-	"github.com/etix/mirrorbits/mirrors"
+	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/golang/protobuf/ptypes"
 )
 
@@ -57,7 +57,7 @@ func MirrorToRPC(m *mirrors.Mirror) (*Mirror, error) {
 		LastSuccessfulSync:   lastSuccessfulSync,
 		LastModTime:          lastModTime,
 		Country:              m.Country,
-		NetBandwidth:         m.NetBandwidth,
+		NetworkBandwidth:     m.NetworkBandwidth,
 	}, nil
 }
 
@@ -110,6 +110,6 @@ func MirrorFromRPC(m *Mirror) (*mirrors.Mirror, error) {
 		LastSuccessfulSync:   mirrors.Time{}.FromTime(lastSuccessfulSync),
 		LastModTime:          mirrors.Time{}.FromTime(lastModTime),
 		Country:              m.Country,
-		NetBandwidth:         m.NetBandwidth,
+		NetworkBandwidth:     m.NetworkBandwidth,
 	}, nil
 }

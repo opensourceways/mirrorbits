@@ -100,9 +100,9 @@
 ### FEATURES
 
 - Support for HA via Redis sentinel
-- Clustering support (multiple Mirrorbits instances) [#6](https://github.com/etix/mirrorbits/issues/6)
+- Clustering support (multiple Mirrorbits instances) [#6](https://github.com/opensourceways/mirrorbits/issues/6)
 - Support for Redis DB index
-- SHA256 and MD5 hashing support (in addition to SHA1) [#4](https://github.com/etix/mirrorbits/issues/4)
+- SHA256 and MD5 hashing support (in addition to SHA1) [#4](https://github.com/opensourceways/mirrorbits/issues/4)
 - Configurable interval for sync and check
 - CLI: get stats by matching regular expressions
 - HTTP: get the checksum of any file by appending ?sha1, ?sha256 or ?md5 to any served file
@@ -111,11 +111,11 @@
 ### ENHANCEMENTS
 
 - Improved systemd service file
-- New mirrorlist template [#15](https://github.com/etix/mirrorbits/issues/15)
+- New mirrorlist template [#15](https://github.com/opensourceways/mirrorbits/issues/15)
 - Geoip databases are now updated (in memory) during a reload
 - Reuse all Redis connections when possible
 - Detect and wait until Redis has loaded the dataset into memory
-- Improved handling of X-Forwarded-For IP addresses [#23](https://github.com/etix/mirrorbits/issues/23)
+- Improved handling of X-Forwarded-For IP addresses [#23](https://github.com/opensourceways/mirrorbits/issues/23)
 - Logging: enable the colored output only if supported by the terminal
 - More configuration items can be applied with a simple reload
 - Improved scan behavior for newly added mirror (healthcheck only after successful scan)
@@ -138,8 +138,8 @@
 - Fix a bug causing some disabled mirrors to be health-checked
 - Don't reload logs if outputting on stderr (journald is now happy)
 - Fix a crash if no mirrors and no fallbacks are available
-- CLI: fix matching of a mirror ID containing the same substring [#19](https://github.com/etix/mirrorbits/issues/19)
-- scan: fix an issue causing a constant rehashing of all files [#18](https://github.com/etix/mirrorbits/issues/18)
+- CLI: fix matching of a mirror ID containing the same substring [#19](https://github.com/opensourceways/mirrorbits/issues/19)
+- scan: fix an issue causing a constant rehashing of all files [#18](https://github.com/opensourceways/mirrorbits/issues/18)
 - The geoip-lite-update script did not update the databases correctly
 
 ## v0.2

@@ -16,13 +16,13 @@ import (
 	"sync"
 	"syscall"
 
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/mirrors"
-	"github.com/etix/mirrorbits/network"
-	"github.com/etix/mirrorbits/scan"
-	"github.com/etix/mirrorbits/utils"
+	. "github.com/opensourceways/mirrorbits/config"
+	"github.com/opensourceways/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/database"
+	"github.com/opensourceways/mirrorbits/mirrors"
+	"github.com/opensourceways/mirrorbits/network"
+	"github.com/opensourceways/mirrorbits/scan"
+	"github.com/opensourceways/mirrorbits/utils"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gomodule/redigo/redis"
@@ -250,7 +250,7 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 	}
 
 	reply := &AddMirrorReply{}
-
+	reply.NetworkBandwidth = mirror.NetworkBandwidth
 	ip, err := network.LookupMirrorIP(u.Host)
 	if err == network.ErrMultipleAddresses {
 		reply.Warnings = append(reply.Warnings,
@@ -432,7 +432,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"score", mirror.Score,
 		"latitude", mirror.Latitude,
 		"longitude", mirror.Longitude,
-		"netBandwidth", mirror.NetBandwidth,
+		"networkBandwidth", mirror.NetworkBandwidth,
 		"continentCode", mirror.ContinentCode,
 		"countryCodes", mirror.CountryCodes,
 		"country", mirror.Country,

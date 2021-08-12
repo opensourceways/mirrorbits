@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/mirrors"
-	. "github.com/etix/mirrorbits/testing"
+	. "github.com/opensourceways/mirrorbits/config"
+	"github.com/opensourceways/mirrorbits/database"
+	"github.com/opensourceways/mirrorbits/mirrors"
+	. "github.com/opensourceways/mirrorbits/testing"
 )
 
 func TestMain(m *testing.M) {
