@@ -18,7 +18,7 @@ require (
 	golang.org/x/net v0.0.0-20190912160710-24e19bdeb0f2
 	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/grpc v1.38.0
-	google.golang.org/protobuf v1.25.0 // indirect
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/tylerb/graceful.v1 v1.2.15
 	gopkg.in/yaml.v2 v2.2.2
 	vitess.io/vitess v2.1.1+incompatible // indirect
