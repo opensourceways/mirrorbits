@@ -175,6 +175,13 @@ func ReloadConfig() error {
 		// TODO reload redis connections
 		// Currently established connections will be updated only in case of disconnection
 	}
+	//if config != nil &&
+	//	(c.RedisAddress != GetRedisAddress() ||
+	//		c.RedisPassword != GetRedisPwd() ||
+	//		!testSentinelsEq(c.RedisSentinels, config.RedisSentinels)) {
+	//	// TODO reload redis connections
+	//	// Currently established connections will be updated only in case of disconnection
+	//}
 
 	// Lock the pointer during the swap
 	configMutex.Lock()
@@ -255,4 +262,12 @@ func isInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func GetRedisAddress() string {
+	return os.Getenv("REDIS_ADDRESS_PORT")
+}
+
+func GetRedisPwd() string {
+	return os.Getenv("REDIS_PWD")
 }
