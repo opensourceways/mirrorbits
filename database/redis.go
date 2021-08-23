@@ -247,24 +247,24 @@ func (r *Redis) Connect() (redis.Conn, error) {
 
 single:
 
-	if len(GetConfig().RedisAddress) == 0 {
-		if len(sentinels) == 0 {
-			log.Error("No redis master available")
-		}
-		return nil, ErrUnreachable
-	}
-	//if len(GetRedisAddress()) == 0 {
+	//if len(GetConfig().RedisAddress) == 0 {
 	//	if len(sentinels) == 0 {
 	//		log.Error("No redis master available")
 	//	}
 	//	return nil, ErrUnreachable
 	//}
+	if len(GetRedisAddress()) == 0 {
+		if len(sentinels) == 0 {
+			log.Error("No redis master available")
+		}
+		return nil, ErrUnreachable
+	}
 	if len(sentinels) > 0 && r.Failure() == false {
 		log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
 	}
 
-	c, err := r.connectTo(GetConfig().RedisAddress)
-	//c, err := r.connectTo(GetRedisAddress())
+	//c, err := r.connectTo(GetConfig().RedisAddress)
+	c, err := r.connectTo(GetRedisAddress())
 	if err != nil {
 		return nil, err
 	}
@@ -282,12 +282,12 @@ single:
 		return nil, ErrUnreachable
 	}
 	if role != "master" {
-		//r.logError("Redis master: %s is not a master but a %s", GetRedisAddress(), role)
-		r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
+		r.logError("Redis master: %s is not a master but a %s", GetRedisAddress(), role)
+		//r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
 		return nil, ErrUnreachable
 	}
-	r.printConnectedMaster(GetConfig().RedisAddress)
-	//r.printConnectedMaster(GetRedisAddress())
+	//r.printConnectedMaster(GetConfig().RedisAddress)
+	r.printConnectedMaster(GetRedisAddress())
 	return c, err
 
 }
@@ -309,12 +309,12 @@ func (r *Redis) askRole(c redis.Conn) (string, error) {
 }
 
 func (r *Redis) auth(c redis.Conn) (err error) {
-	if GetConfig().RedisPassword != "" {
-		_, err = c.Do("AUTH", GetConfig().RedisPassword)
-	}
-	//if GetRedisPwd() != "" {
-	//	_, err = c.Do("AUTH", GetRedisPwd())
+	//if GetConfig().RedisPassword != "" {
+	//	_, err = c.Do("AUTH", GetConfig().RedisPassword)
 	//}
+	if GetRedisPwd() != "" {
+		_, err = c.Do("AUTH", GetRedisPwd())
+	}
 	return
 }
 
