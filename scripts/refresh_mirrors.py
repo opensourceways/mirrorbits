@@ -63,25 +63,14 @@ def init_mirrors():
                 net_bandwidth = mirror_info['NetworkBandwidth']
                 latitude = mirror_info['Latitude']
                 longitude = mirror_info['Longitude']
+                country = mirror_info['Country']
                 command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
                                  '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
-                                 '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" {15}'.format(admin_email,
-                                                                                                        admin_name,
-                                                                                                        as_only,
-                                                                                                        continent_only,
-                                                                                                        country_only,
-                                                                                                        ftp_url,
-                                                                                                        http_url,
-                                                                                                        rsync_url,
-                                                                                                        score,
-                                                                                                        sponsor_logo,
-                                                                                                        sponsor_name,
-                                                                                                        sponsor_url,
-                                                                                                        net_bandwidth,
-                                                                                                        latitude,
-                                                                                                        longitude,
-                                                                                                        mirror_name)
+                                 '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" -country="{15}" ' \
+                                 '{16}'.format(admin_email, admin_name, as_only, continent_only, country_only, ftp_url,
+                                               http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
+                                               net_bandwidth, latitude, longitude, country, mirror_name)
                 judge_statement(command_string)
                 judge_statement('mirrorbits enable {}'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
@@ -102,6 +91,7 @@ def init_mirrors():
                 pt.add_row(['NetBandwidth', net_bandwidth])
                 pt.add_row(['Latitude', latitude])
                 pt.add_row(['Longitude', longitude])
+                pt.add_row(['Country', country])
                 logging.info('\n' + str(pt))
             except KeyError as e:
                 logging.error(e)
@@ -167,25 +157,14 @@ def sync_and_refresh():
                 net_bandwidth = mirror_info['NetworkBandwidth']
                 latitude = mirror_info['Latitude']
                 longitude = mirror_info['Longitude']
+                country = mirror_info['Country']
                 command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
                                  '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
-                                 '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" {15}'.format(admin_email,
-                                                                                                        admin_name,
-                                                                                                        as_only,
-                                                                                                        continent_only,
-                                                                                                        country_only,
-                                                                                                        ftp_url,
-                                                                                                        http_url,
-                                                                                                        rsync_url,
-                                                                                                        score,
-                                                                                                        sponsor_logo,
-                                                                                                        sponsor_name,
-                                                                                                        sponsor_url,
-                                                                                                        net_bandwidth,
-                                                                                                        latitude,
-                                                                                                        longitude,
-                                                                                                        mirror_name)
+                                 '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" -country="{15}" ' \
+                                 '{16}'.format(admin_email, admin_name, as_only, continent_only, country_only, ftp_url,
+                                               http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
+                                               net_bandwidth, latitude, longitude, country, mirror_name)
                 judge_statement(command_string)
                 judge_statement('mirrorbits enable {}'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
@@ -206,6 +185,7 @@ def sync_and_refresh():
                 pt.add_row(['NetBandwidth', net_bandwidth])
                 pt.add_row(['Latitude', latitude])
                 pt.add_row(['Longitude', longitude])
+                pt.add_row(['Country', country])
                 logging.info('\n' + str(pt))
             except KeyError as e:
                 logging.error(e)
