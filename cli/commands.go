@@ -20,15 +20,15 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/howeyc/gopass"
+	"github.com/op/go-logging"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/filesystem"
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/rpc"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/howeyc/gopass"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -269,6 +269,7 @@ func (c *cli) CmdAdd(args ...string) error {
 	netBandwidth := cmd.Int64("net-bandwidth", 1000, "The downstream network bandwidth defaults to 1000mb/s,Unit: mb/s")
 	latitude := cmd.Float64("latitude", 0, "latitude (-90~90)")
 	longitude := cmd.Float64("longitude", 0, "longitude (-180~180)")
+	country := cmd.String("country", "", "Name of country")
 
 	if err := cmd.Parse(args); err != nil {
 		log.Fatal("err: ", err)
@@ -318,6 +319,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		NetworkBandwidth: int32(*netBandwidth),
 		Latitude:         float32(*latitude),
 		Longitude:        float32(*longitude),
+		Country:          *country,
 	}
 
 	client := c.GetRPC()
@@ -578,7 +580,8 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 		mirror.SponsorLogoURL == updateMirror.SponsorLogoURL &&
 		mirror.NetworkBandwidth == updateMirror.NetworkBandwidth &&
 		mirror.Latitude == updateMirror.Latitude &&
-		mirror.Longitude == updateMirror.Longitude {
+		mirror.Longitude == updateMirror.Longitude &&
+		mirror.Country == updateMirror.Country {
 		return false
 	}
 	mirror.HttpURL = updateMirror.HttpURL
@@ -597,6 +600,7 @@ func CompareAndUpdate(mirror *mirrors.Mirror, updateMirror *mirrors.Mirror) bool
 	mirror.NetworkBandwidth = updateMirror.NetworkBandwidth
 	mirror.Latitude = updateMirror.Latitude
 	mirror.Longitude = updateMirror.Longitude
+	mirror.Country = updateMirror.Country
 	return true
 }
 
