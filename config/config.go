@@ -168,20 +168,20 @@ func ReloadConfig() error {
 		c.RepositoryScanInterval = 0
 	}
 
-	//if config != nil &&
-	//	(c.RedisAddress != config.RedisAddress ||
-	//		c.RedisPassword != config.RedisPassword ||
-	//		!testSentinelsEq(c.RedisSentinels, config.RedisSentinels)) {
-	//	// TODO reload redis connections
-	//	// Currently established connections will be updated only in case of disconnection
-	//}
 	if config != nil &&
-		(c.RedisAddress != GetRedisAddress() ||
-			c.RedisPassword != GetRedisPwd() ||
+		(c.RedisAddress != config.RedisAddress ||
+			c.RedisPassword != config.RedisPassword ||
 			!testSentinelsEq(c.RedisSentinels, config.RedisSentinels)) {
 		// TODO reload redis connections
 		// Currently established connections will be updated only in case of disconnection
 	}
+	//if config != nil &&
+	//	(c.RedisAddress != GetRedisAddress() ||
+	//		c.RedisPassword != GetRedisPwd() ||
+	//		!testSentinelsEq(c.RedisSentinels, config.RedisSentinels)) {
+	//	// TODO reload redis connections
+	//	// Currently established connections will be updated only in case of disconnection
+	//}
 
 	// Lock the pointer during the swap
 	configMutex.Lock()
