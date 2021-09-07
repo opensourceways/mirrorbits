@@ -5,6 +5,7 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -145,6 +146,7 @@ func (g *GeoIP) LoadGeoIP() error {
 // GetRecord return informations about the given ip address
 // (works in IPv4 and v6)
 func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
+	fmt.Printf("GetRecord:  ip-> %s\n", ip)
 	addr := net.ParseIP(ip)
 	if addr == nil {
 		return GeoIPRecord{}

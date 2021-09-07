@@ -275,7 +275,9 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 		mirror.ContinentCode = geoRec.ContinentCode
 		mirror.CountryCodes = geoRec.CountryCode
 		mirror.Asnum = geoRec.ASNum
-		mirror.Country = geoRec.Country
+		if len(mirror.Country) < 2 {
+			mirror.Country = geoRec.Country
+		}
 		reply.Latitude = mirror.Latitude
 		reply.Longitude = mirror.Longitude
 		reply.Continent = geoRec.ContinentCode
@@ -328,7 +330,9 @@ func (c *CLI) UpdateMirror(ctx context.Context, in *Mirror) (*UpdateMirrorReply,
 		}
 		geoRec := geo.GetRecord(ip)
 		if geoRec.IsValid() {
-			mirror.Country = geoRec.Country
+			if len(mirror.Country) < 2 {
+				mirror.Country = geoRec.Country
+			}
 			if mirror.Latitude == 0 {
 				mirror.Latitude = geoRec.Latitude
 			}
