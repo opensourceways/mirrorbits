@@ -1,21 +1,27 @@
-FROM golang:latest
+FROM openeuler/openeuler:21.03
 
 LABEL maintainer="etix@l0cal.com"
 
-ADD . /go/mirrorbits
+RUN yum install -y update
+RUN yum install -y sudo
+RUN sudo yum install -y go
+ENV GOROOT=/usr/lib/golang
+ENV PATH=$PATH:/usr/lib/golang/bin
+ENV GOPATH=/go
+RUN mkdir -p /go/bin && mkdir -p /go/src
+ENV PATH=$GOPATH/bin
+ADD . /go/src/mirrorbits
 
-RUN apt-get update -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config zlib1g-dev protobuf-compiler libprotoc-dev rsync python3 python3-pip git-extras && \
-    apt-get clean
-RUN pip3 install pyyaml prettytable && apt install -y redis
+RUN yum install -y gcc && yum install -y pkg-config zlib1g-dev protobuf-compiler libprotoc-dev rsync python3 python3-pip git-extras python3-devel
+RUN pip install pyyaml prettytable && yum install -y redis
 # install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
 # and geoip folder is /usr/share/GeoIP
 RUN GO111MODULE=on && go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate && \
     mkdir /usr/share/GeoIP
 RUN mkdir /srv/repo /var/log/mirrorbits && \
-    cd /go/mirrorbits && make && \
+    cd /go/src/mirrorbits && make && \
     make install PREFIX=/usr
-RUN cp /go/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
+RUN cp /go/src/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
 COPY scripts /
 
 ENTRYPOINT /usr/bin/mirrorbits daemon -config /etc/mirrorbits.conf
