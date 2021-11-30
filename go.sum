@@ -17,6 +17,8 @@ github.com/etix/goftp v0.0.0-20170217140226-0c13163a1028 h1:hO2NDwWjaY+FjWoZdMLa
 github.com/etix/goftp v0.0.0-20170217140226-0c13163a1028/go.mod h1:broujVOEKwPL7fT3Xa1mJzV2aIqT1keOqSVEPqEO61Y=
 github.com/gofrs/flock v0.8.0 h1:MSdYClljsF3PbENUUEx85nkWfJSGfzYI9yEBZOJz6CY=
 github.com/gofrs/flock v0.8.0/go.mod h1:F1TvTiK9OcQqauNUHlbJvyl9Qa1QvF/gOUDKA14jxHU=
+github.com/gofrs/flock v0.8.1 h1:+gYjHKf32LDeiEEFhQaotPbLuUXjY5ZqxKgXy7n59aw=
+github.com/gofrs/flock v0.8.1/go.mod h1:F1TvTiK9OcQqauNUHlbJvyl9Qa1QvF/gOUDKA14jxHU=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
@@ -54,6 +56,8 @@ github.com/maxmind/geoipupdate v0.0.2 h1:z7g7U12PVcphcAE+kjSRPcAKWorxb7vZyKw53Ku
 github.com/maxmind/geoipupdate v3.1.1+incompatible h1:a7mXq/6nzGyrT/8g0oqdKd+/rgv8lsL/KP6f6777wpA=
 github.com/maxmind/geoipupdate/v4 v4.7.1 h1:mzZtYZ338ujk0g+nVtFBHh5UxZ/xslIePOpCjaUz4Rw=
 github.com/maxmind/geoipupdate/v4 v4.7.1/go.mod h1:4nc7rgq0Lwk358Cgko0D9cTRnCUE6plQX5SDGhs0E/c=
+github.com/maxmind/geoipupdate/v4 v4.8.0 h1:y1QNuS4PSKHjguUPlo8tgbaPvYoqzXuUKfcHG9MRTNU=
+github.com/maxmind/geoipupdate/v4 v4.8.0/go.mod h1:ThvYtGKtKW+HJ9YG7zInzY9smRUTObdTHYO7HLBt4d8=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 h1:lDH9UUVJtmYCjyT0CI4q8xvlXPxeZ0gYCVvWbmPlp88=
 github.com/op/go-logging v0.0.0-20160315200505-970db520ece7/go.mod h1:HzydrMdWErDVzsI23lYNej1Htcns9BCg93Dk0bBINWk=

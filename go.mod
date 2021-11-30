@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/maxmind/geoipupdate/v4 v4.7.1 // indirect
+	github.com/maxmind/geoipupdate/v4 v4.8.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/oschwald/maxminddb-golang v1.5.0
 	github.com/pkg/errors v0.9.1
