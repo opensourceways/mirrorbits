@@ -12,7 +12,7 @@ ENV GOPATH=/go
 ENV PATH=$GOPATH/bin/:$PATH
 
 RUN sudo yum install -y gcc make && sudo yum install -y pkg-config git zlib autoconf automake libtool curl g++ unzip protobuf-compiler rsync python3 python3-pip python3-devel
-RUN pip install pyyaml prettytable && pip install git-extras && sudo yum install -y redis
+RUN pip install pyyaml prettytable && sudo yum install -y redis
 # install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
 # and geoip folder is /usr/share/GeoIP env GO111MODULE=on go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate
 ENV GO111MODULE=on
@@ -25,13 +25,14 @@ RUN mkdir -p /srv/repo /var/log/mirrorbits && \
 RUN cp /go/src/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
 COPY scripts /
 RUN cd / && git clone https://github.com/protocolbuffers/protobuf.git
-RUN cd protobuf && git submodule update --init --recursive
-RUN ./autogen.sh && ./configure --prefix=/usr/local/protobuf && make && make check && make install
+RUN cd /protobuf && git submodule update --init --recursive && chmod 755 autogen.sh && ./autogen.sh && chmod 755 configure && ./configure --prefix=/usr/local/protobuf && make && make install
 ENV PATH=$PATH:/usr/local/protobuf/bin
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/protobuf/lib
 ENV LIBRARY_PATH=$LIBRARY_PATH:/usr/local/protobuf/lib
 RUN cd / && git clone https://github.com/tj/git-extras.git
 ENV PATH=$PATH:/git-extras/bin
+RUN /git-extras/bin/git-extras update
+
 ENTRYPOINT /usr/bin/mirrorbits daemon -config /etc/mirrorbits.conf
 
 EXPOSE 8080
