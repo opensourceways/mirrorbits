@@ -36,7 +36,7 @@ def init_mirrors():
             repo_mirrors.append(i)
     for i in current_mirrors:
         if i not in repo_mirrors:
-            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
+            judge_statement('yes | mirrorbits remove "{}"'.format(i[:-5]))
             logging.info('[init] remove mirror: {}'.format(i[:-5]))
     for i in repo_mirrors:
         if i not in current_mirrors:
@@ -68,11 +68,12 @@ def init_mirrors():
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
                                  '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
                                  '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" -country="{15}" ' \
-                                 '{16}'.format(admin_email, admin_name, as_only, continent_only, country_only, ftp_url,
-                                               http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
-                                               net_bandwidth, latitude, longitude, country, mirror_name)
+                                 '"{16}"'.format(admin_email, admin_name, as_only, continent_only, country_only,
+                                                 ftp_url,
+                                                 http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
+                                                 net_bandwidth, latitude, longitude, country, mirror_name)
                 judge_statement(command_string)
-                judge_statement('mirrorbits enable {}'.format(mirror_name))
+                judge_statement('mirrorbits enable "{}"'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
                 logging.info('[init] add a new mirror: {}, details are below'.format(i[:-5]))
                 pt.add_row(['Name', i[:-5]])
@@ -98,8 +99,9 @@ def init_mirrors():
                 exit(1)
         else:
             judge_statement(
-                'mirrorbits edit -mirror-file {} {}'.format(os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)),
-                                                            i[:-5]))
+                'mirrorbits edit -mirror-file "{}" "{}"'.format(
+                    os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)),
+                    i[:-5]))
             logging.info('[init] update mirror: {}'.format(i[:-5]))
 
 
@@ -115,7 +117,7 @@ def sync_and_refresh():
     for i in os.listdir('{}/{}'.format(fork_repo, mirrors_dir)):
         if i.endswith('.yaml'):
             before_yaml_lst.append(i)
-            judge_statement('cp {} {}'.format(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i)))
+            judge_statement('cp "{}" "{}"'.format(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i)))
     # git sync
     logging.info('git sync')
     judge_statement('cd {}; yes | git sync'.format(fork_repo))
@@ -130,7 +132,7 @@ def sync_and_refresh():
     # update mirrors info
     for i in before_yaml_lst:
         if i not in yaml_lst:
-            judge_statement('yes | mirrorbits remove {}'.format(i[:-5]))
+            judge_statement('yes | mirrorbits remove "{}"'.format(i[:-5]))
             logging.info('remove mirror: {}'.format(i[:-5]))
     for i in yaml_lst:
         if i not in before_yaml_lst:
@@ -162,11 +164,12 @@ def sync_and_refresh():
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
                                  '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
                                  '-net-bandwidth="{12}" -latitude="{13}" -longitude="{14}" -country="{15}" ' \
-                                 '{16}'.format(admin_email, admin_name, as_only, continent_only, country_only, ftp_url,
-                                               http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
-                                               net_bandwidth, latitude, longitude, country, mirror_name)
+                                 '"{16}"'.format(admin_email, admin_name, as_only, continent_only, country_only,
+                                                 ftp_url,
+                                                 http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
+                                                 net_bandwidth, latitude, longitude, country, mirror_name)
                 judge_statement(command_string)
-                judge_statement('mirrorbits enable {}'.format(mirror_name))
+                judge_statement('mirrorbits enable "{}"'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
                 logging.info('add a new mirror: {}, details are below'.format(i[:-5]))
                 pt.add_row(['Name', i[:-5]])
@@ -194,12 +197,12 @@ def sync_and_refresh():
             if filecmp.cmp(os.path.join(fork_repo, mirrors_dir, i), os.path.join(temp_dir, i), shallow=True):
                 continue
             else:
-                judge_statement('mirrorbits edit -mirror-file {} {}'.format(
+                judge_statement('mirrorbits edit -mirror-file "{}" "{}"'.format(
                     os.path.abspath(os.path.join(fork_repo, mirrors_dir, i)), i[:-5]))
                 logging.info('update mirror: {}'.format(i[:-5]))
     # clean temp files
     for i in before_yaml_lst:
-        judge_statement('rm {}'.format(os.path.join(temp_dir, i)))
+        judge_statement('rm "{}"'.format(os.path.join(temp_dir, i)))
         logging.info('remove temp file {}'.format(os.path.join(temp_dir, i)))
     time.sleep(sleep_time)
 
