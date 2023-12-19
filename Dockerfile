@@ -1,4 +1,4 @@
-FROM openeuler/openeuler:21.03
+FROM openeuler/openeuler:22.03-lts
 
 LABEL maintainer="etix@l0cal.com"
 
@@ -16,6 +16,7 @@ RUN pip install pyyaml prettytable && sudo yum install -y redis
 # install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
 # and geoip folder is /usr/share/GeoIP env GO111MODULE=on go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate
 ENV GO111MODULE=on
+RUN go env -w GOPROXY=https://goproxy.cn,direct
 RUN go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate && \
     mkdir -p /usr/share/GeoIP
 COPY . /go/src/mirrorbits
