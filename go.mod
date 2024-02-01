@@ -14,13 +14,12 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rafaeljusto/redigomock v0.0.0-20190202135759-257e089e14a1
 	github.com/youtube/vitess v0.0.0-20181105031612-54855ec7b369
-	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7 // indirect
-	golang.org/x/net v0.0.0-20190912160710-24e19bdeb0f2
-	golang.org/x/text v0.3.2 // indirect
+	golang.org/x/net v0.17.0
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/tylerb/graceful.v1 v1.2.15
-	gopkg.in/yaml.v2 v2.2.2
+	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v3 v3.0.0-20220521103104-8f96da9f5d5e // indirect
 	vitess.io/vitess v2.1.1+incompatible // indirect
 )
 
