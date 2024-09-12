@@ -8,12 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -21,7 +19,9 @@ import (
 	"sync"
 	"time"
 
-	systemd "github.com/coreos/go-systemd/daemon"
+	"github.com/coreos/go-systemd/v22/daemon"
+	"github.com/gomodule/redigo/redis"
+	"github.com/op/go-logging"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
@@ -30,8 +30,6 @@ import (
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
-	"github.com/op/go-logging"
 	"gopkg.in/tylerb/graceful.v1"
 )
 
@@ -196,7 +194,7 @@ func (h *HTTP) RunServer() (err error) {
 	// This is a no-op if NOTIFY_SOCKET isn't set.
 	if os.Getenv("NOTIFY_SOCKET") != "" {
 		log.Debug("Notifying systemd of readiness")
-		systemd.SdNotify(false, systemd.SdNotifyReady)
+		daemon.SdNotify(false, daemon.SdNotifyReady)
 	}
 
 	/* Serve until we receive a SIGTERM */
@@ -224,11 +222,11 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//select mirrors based on file or directory
+// select mirrors based on file or directory
 func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo,
 	clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
 	var fileList []*filesystem.FileInfo
-	localPath := path.Join(GetConfig().Repository, fileInfo.Path)
+	localPath := GetConfig().Repository + fileInfo.Path
 	f, err := os.Stat(localPath)
 	if err != nil {
 		return nil, nil, err
@@ -344,7 +342,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			fallback = true
 			for i, f := range fallbacks {
 				country := ""
-				if strings.ToUpper(f.CountryCode) == "CN" || strings.ToUpper(f.CountryCode) == "CHINA"{
+				if strings.ToUpper(f.CountryCode) == "CN" || strings.ToUpper(f.CountryCode) == "CHINA" {
 					country = "China"
 				}
 				mlist = append(mlist, mirrors.Mirror{
@@ -368,7 +366,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 	tempMlist := make([]mirrors.Mirror, len(mlist))
 	for _, ml := range mlist {
-		if ml.CountryCodes == "TWN" || ml.CountryCodes == "TPE" || ml.CountryCodes == "TW"{
+		if ml.CountryCodes == "TWN" || ml.CountryCodes == "TPE" || ml.CountryCodes == "TW" {
 			ml.CountryCodes = "CN"
 			ml.Country = "China"
 		} else if ml.CountryCodes == "HK" ||
@@ -723,7 +721,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 			},
 			TZOffset: tzoffset,
 		}
-		if mirror.CountryCodes == "TWN" || mirror.CountryCodes == "TPE" || mirror.CountryCodes == "TW"{
+		if mirror.CountryCodes == "TWN" || mirror.CountryCodes == "TPE" || mirror.CountryCodes == "TW" {
 			mirror.CountryCodes = "CN"
 			mirror.Country = "China"
 		} else if mirror.CountryCodes == "HK" ||
