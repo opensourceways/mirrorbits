@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
+	"github.com/op/go-logging"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
@@ -19,8 +21,6 @@ import (
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
-	"github.com/op/go-logging"
 )
 
 var (
@@ -391,7 +391,7 @@ type sourcescanner struct {
 
 // Walk inside the source/reference repository
 func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
-	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 || strings.HasPrefix(f.Name(), "."){
+	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 || strings.HasPrefix(f.Name(), ".") {
 		return nil, nil
 	}
 
@@ -467,14 +467,22 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 	}
 
 	log.Info("[source] Scanning the filesystem...")
+	prefixLen := len(GetConfig().Repository + filesystem.Sep)
 	err = filepath.Walk(GetConfig().Repository, func(path string, f os.FileInfo, err error) error {
-		fd, err := s.walkSource(conn, path, f, forceRehash, err)
 		if err != nil {
 			return err
 		}
-		if fd != nil {
-			sourceFiles = append(sourceFiles, fd)
+		if !f.IsDir() && filesystem.Filter(path) {
+			filesystem.FileTree.Root.LayeringPath(filesystem.FileTree.M, path[prefixLen:])
+			fd, err1 := s.walkSource(conn, path, f, forceRehash, err)
+			if err1 != nil {
+				return err1
+			}
+			if fd != nil {
+				sourceFiles = append(sourceFiles, fd)
+			}
 		}
+
 		return nil
 	})
 
@@ -562,4 +570,3 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	return nil
 }
-

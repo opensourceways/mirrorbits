@@ -234,20 +234,17 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 
 	if f.IsDir() {
 		//try sub file instead
-		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
 			//skip directory or filename start with .
 			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
 				return nil
 			}
 			// only collect ten files at most
-			if len(fileList) > 10 {
-				return io.EOF
-			}
 			newFileInfo := filesystem.NewFileInfo(path[len(GetConfig().Repository):])
 			fileList = append(fileList, &newFileInfo)
 			return nil
 		})
-		if err != io.EOF {
+		if err != nil {
 			return nil, nil, err
 		}
 	} else {
@@ -303,7 +300,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	//XXX it would be safer to recover in case of panic
 
 	// Sanitize path
-	urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
+	_, urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -383,6 +380,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	results := &mirrors.Results{
 		FileInfo:     fileInfo,
+		FileTree:     (*filesystem.FileTree.M[urlPath[1:]]).Flattening(),
 		MirrorList:   mlist,
 		ExcludedList: excluded,
 		ClientInfo:   clientInfo,
@@ -537,7 +535,7 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 
 	// Sanitize path
-	urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
+	_, urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)

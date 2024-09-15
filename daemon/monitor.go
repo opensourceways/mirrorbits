@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
+	"github.com/op/go-logging"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/scan"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 )
 
@@ -175,7 +175,7 @@ func (m *monitor) MonitorLoop() {
 			return err
 		}
 		return nil
-	}, 1*time.Second)
+	}, time.Duration(int64(GetConfig().RepositoryScanInterval))*time.Second)
 
 	// Synchronize the list of all known mirrors
 	m.retry(func(i uint) error {
@@ -194,7 +194,7 @@ func (m *monitor) MonitorLoop() {
 			return err
 		}
 		return nil
-	}, 500*time.Millisecond)
+	}, time.Duration(int64(GetConfig().ScanInterval))*time.Second)
 
 	if utils.IsStopped(m.stop) {
 		return
@@ -616,6 +616,7 @@ func (m *monitor) getRandomFile(id int) (file string, size int64, err error) {
 // Trigger a sync of the local repository
 func (m *monitor) scanRepository() error {
 	err := scan.ScanSource(m.redis, false, m.stop)
+	log.Error("扫描一次本地路径")
 	if err != nil {
 		log.Errorf("Scanning source failed: %s", err.Error())
 	}
