@@ -105,6 +105,8 @@ func (s *Stats) processCountDownload() {
 			s.mapStats["s"+date+strconv.Itoa(c.mirrorID)] += c.size
 		case <-pushTicker.C:
 			s.pushStats()
+			pushTicker.Stop()
+			pushTicker.Reset(500 * time.Millisecond)
 		}
 	}
 }

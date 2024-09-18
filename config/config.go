@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/opensourceways/mirrorbits/core"
 	"github.com/op/go-logging"
+	"github.com/opensourceways/mirrorbits/core"
 	"gopkg.in/yaml.v2"
 )
 
@@ -66,6 +66,7 @@ func defaultConfig() Configuration {
 // Configuration contains all the option available in the yaml file
 type Configuration struct {
 	Repository              string     `yaml:"Repository"`
+	RepositoryFilter        DirFilter  `yaml:"RepositoryFilter"`
 	Templates               string     `yaml:"Templates"`
 	LocalJSPath             string     `yaml:"LocalJSPath"`
 	OutputMode              string     `yaml:"OutputMode"`
@@ -95,6 +96,11 @@ type Configuration struct {
 
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
+}
+
+type DirFilter struct {
+	SecondDir []string `yaml:"SecondDir"`
+	ThirdDir  []string `yaml:"ThirdDir"`
 }
 
 type fallback struct {
@@ -167,6 +173,8 @@ func ReloadConfig() error {
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
 	}
+
+	//
 
 	if config != nil &&
 		(c.RedisAddress != config.RedisAddress ||
@@ -254,7 +262,7 @@ func testSentinelsEq(a, b []sentinels) bool {
 	return true
 }
 
-//DUPLICATE
+// DUPLICATE
 func isInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {

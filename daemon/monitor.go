@@ -175,7 +175,7 @@ func (m *monitor) MonitorLoop() {
 			return err
 		}
 		return nil
-	}, time.Duration(int64(GetConfig().RepositoryScanInterval))*time.Second)
+	}, 1*time.Second)
 
 	// Synchronize the list of all known mirrors
 	m.retry(func(i uint) error {
@@ -194,7 +194,7 @@ func (m *monitor) MonitorLoop() {
 			return err
 		}
 		return nil
-	}, time.Duration(int64(GetConfig().ScanInterval))*time.Second)
+	}, 500*time.Millisecond)
 
 	if utils.IsStopped(m.stop) {
 		return
@@ -627,6 +627,7 @@ func (m *monitor) scanRepository() error {
 // the process to be stopped.
 func (m *monitor) retry(fn func(iteration uint) error, delay time.Duration) {
 	var i uint
+	timer := time.NewTimer(delay)
 	for {
 		err := fn(i)
 		i++
@@ -636,7 +637,12 @@ func (m *monitor) retry(fn func(iteration uint) error, delay time.Duration) {
 		select {
 		case <-m.stop:
 			return
-		case <-time.After(delay):
+		case <-timer.C:
+			log.Error("看看会不会超时")
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(delay)
 		}
 	}
 }

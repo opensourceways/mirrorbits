@@ -78,6 +78,8 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 		writer.Write([]byte("ok"))
 	})
 
+	filesystem.InitPathFilter(GetConfig().RepositoryFilter)
+
 	// Load the GeoIP databases
 	if err := h.geoip.LoadGeoIP(); err != nil {
 		if gerr, ok := err.(network.GeoIPError); ok {
@@ -226,15 +228,19 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo,
 	clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
 	var fileList []*filesystem.FileInfo
-	localPath := GetConfig().Repository + fileInfo.Path
-	f, err := os.Stat(localPath)
+
+	relPath, err := filepath.Abs(GetConfig().Repository + fileInfo.Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := os.Stat(relPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if f.IsDir() {
 		//try sub file instead
-		err = filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(relPath, func(path string, info os.FileInfo, err error) error {
 			//skip directory or filename start with .
 			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
 				return nil
@@ -377,10 +383,45 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 		tempMlist = append(tempMlist, ml)
 	}
+	var fileTree []filesystem.DisplayFileArray
+	if len(urlPath) > 0 {
+		fileTree = (*filesystem.FileTree.M[urlPath[1:]]).Flattening()
+	}
+	var repoVersion []filesystem.DisplayRepoVersion
+	if len(urlPath) == 0 {
+		for k := range filesystem.FileTree.M {
+			pathArr := strings.Split(k, filesystem.Sep)
+			if len(pathArr) == 1 {
+				var scenario []string
+				var arch []string
+				for _, v := range filesystem.Scenario {
+					if _, ok := filesystem.FileTree.M[pathArr[0]+filesystem.Sep+v]; ok {
+						scenario = append(scenario, v)
+					}
+				}
+				for _, v := range filesystem.Arch {
+					for _, v1 := range scenario {
+						if _, ok := filesystem.FileTree.M[pathArr[0]+filesystem.Sep+v1+filesystem.Sep+v]; ok {
+							arch = append(arch, v)
+							break
+						}
+					}
+				}
+				repoVersion = append(repoVersion, filesystem.DisplayRepoVersion{
+					Version:  pathArr[0],
+					Scenario: scenario,
+					Arch:     arch,
+					LTS:      strings.Contains(pathArr[0], "LTS"),
+				})
+			}
+
+		}
+	}
 
 	results := &mirrors.Results{
 		FileInfo:     fileInfo,
-		FileTree:     (*filesystem.FileTree.M[urlPath[1:]]).Flattening(),
+		FileTree:     fileTree,
+		RepoVersion:  repoVersion,
 		MirrorList:   mlist,
 		ExcludedList: excluded,
 		ClientInfo:   clientInfo,

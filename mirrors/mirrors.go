@@ -232,6 +232,7 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 type Results struct {
 	FileInfo     filesystem.FileInfo
 	FileTree     []filesystem.DisplayFileArray
+	RepoVersion  []filesystem.DisplayRepoVersion
 	IP           string
 	ClientInfo   network.GeoIPRecord
 	MirrorList   Mirrors

@@ -60,9 +60,11 @@ func (ft *LayerFile) SetFileData(fullPath string) {
 			ft.FileSizeView(stat.Size())
 			ft.Type = "file"
 		}
-		data, err1 := os.ReadFile(relPath)
-		if err1 == nil {
-			ft.Sha256 = string(data)
+		if strings.HasSuffix(relPath, ".sha256sum") {
+			data, err2 := os.ReadFile(relPath)
+			if err2 == nil {
+				ft.Sha256 = string(data)
+			}
 		}
 	}
 }
@@ -83,7 +85,7 @@ func (ft *LayerFile) LayeringPath(fm map[string]*LayerFile, path string) {
 				Name: fileLayer[i],
 			}
 			currPath := dir + Sep + node.Name
-			if currPath == path && strings.HasSuffix(currPath, ".sha256sum") {
+			if currPath == path {
 				node.SetFileData(currPath)
 			}
 			if _, ok1 := fm[currPath]; !ok1 {
@@ -96,6 +98,7 @@ func (ft *LayerFile) LayeringPath(fm map[string]*LayerFile, path string) {
 
 type DisplayFile struct {
 	Name    string
+	Path    string
 	Size    string
 	ShaCode string
 	Type    string
@@ -105,6 +108,13 @@ type DisplayFileArray struct {
 	Scenario string
 	Arch     string
 	Tree     []DisplayFile
+}
+
+type DisplayRepoVersion struct {
+	Version  string
+	Scenario []string
+	Arch     []string
+	LTS      bool
 }
 
 func (ft *LayerFile) Flattening() []DisplayFileArray {
@@ -145,11 +155,17 @@ func (ft *LayerFile) AppendFile(flag bool, t []DisplayFile) []DisplayFile {
 	if !flag {
 		return t
 	}
-
+	path := ft.Dir + Sep + ft.Name
+	shaCode := ""
+	sha, ok := FileTree.M[path+".sha256sum"]
+	if ok {
+		shaCode = strings.Split(sha.Sha256, " ")[0]
+	}
 	return append(t, DisplayFile{
 		Name:    ft.Name,
+		Path:    path,
 		Size:    ft.Size,
-		ShaCode: FileTree.M[ft.Dir+Sep+ft.Name+".sha256sum"].Sha256,
+		ShaCode: shaCode,
 		Type:    "file",
 	})
 }
@@ -161,6 +177,7 @@ func (ft *LayerFile) AppendDir(flag bool, t []DisplayFile) []DisplayFile {
 
 	return append(t, DisplayFile{
 		Name: ft.Name,
+		Path: ft.Dir + Sep + ft.Name,
 		Type: "dir",
 	})
 }
@@ -171,35 +188,30 @@ func (ft *LayerFile) Print() string {
 }
 
 // type PathFilter [...]string
-var PathFilter = [...]string{
-	"ISO" + Sep + "x86_64",
-	"ISO" + Sep + "aarch64",
-	"ISO" + Sep + "arm32",
-	"ISO" + Sep + "loongarch64",
-	"ISO" + Sep + "riscv64",
-	"ISO" + Sep + "power",
-	"ISO" + Sep + "sw64",
-	"edge_img" + Sep + "x86_64",
-	"edge_img" + Sep + "aarch64",
-	"edge_img" + Sep + "arm32",
-	"edge_img" + Sep + "loongarch64",
-	"edge_img" + Sep + "riscv64",
-	"edge_img" + Sep + "power",
-	"edge_img" + Sep + "sw64",
-	"virtual_machine_img" + Sep + "x86_64",
-	"virtual_machine_img" + Sep + "aarch64",
-	"virtual_machine_img" + Sep + "arm32",
-	"virtual_machine_img" + Sep + "loongarch64",
-	"virtual_machine_img" + Sep + "riscv64",
-	"virtual_machine_img" + Sep + "power",
-	"virtual_machine_img" + Sep + "sw64",
-	"embedded_img" + Sep + "x86_64",
-	"embedded_img" + Sep + "aarch64",
-	"embedded_img" + Sep + "arm32",
-	"embedded_img" + Sep + "loongarch64",
-	"embedded_img" + Sep + "riscv64",
-	"embedded_img" + Sep + "power",
-	"embedded_img" + Sep + "sw64",
+var PathFilter []string
+var Scenario []string
+var Arch []string
+
+func InitPathFilter(filter config.DirFilter) {
+	if len(filter.SecondDir) == 0 && len(filter.ThirdDir) == 0 {
+		return
+	}
+
+	if len(filter.SecondDir) != 0 && len(filter.ThirdDir) == 0 {
+		PathFilter = filter.SecondDir
+		Scenario = filter.SecondDir
+	} else if len(filter.SecondDir) == 0 && len(filter.ThirdDir) != 0 {
+		PathFilter = filter.ThirdDir
+		Arch = filter.ThirdDir
+	} else {
+		Scenario = filter.SecondDir
+		Arch = filter.ThirdDir
+		for _, v1 := range filter.SecondDir {
+			for _, v2 := range filter.ThirdDir {
+				PathFilter = append(PathFilter, v1+Sep+v2)
+			}
+		}
+	}
 }
 
 func Filter(path string) bool {

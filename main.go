@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/op/go-logging"
 	"github.com/opensourceways/mirrorbits/cli"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
@@ -22,7 +23,6 @@ import (
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/process"
 	"github.com/opensourceways/mirrorbits/rpc"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 )
 
@@ -153,10 +153,10 @@ func main() {
 			break
 		}
 
-		log.Debug("Waiting for monitor termination")
+		log.Error("Waiting for monitor termination")
 		m.Wait()
 
-		log.Debug("Terminating server")
+		log.Error("Terminating server")
 		h.Terminate()
 
 		r.Close()
