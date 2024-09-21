@@ -231,7 +231,7 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 // used by the renderers to generate the final page.
 type Results struct {
 	FileInfo     filesystem.FileInfo
-	FileTree     []filesystem.DisplayFileArray
+	FileTree     []filesystem.DisplayFileList
 	RepoVersion  []filesystem.DisplayRepoVersion
 	IP           string
 	ClientInfo   network.GeoIPRecord

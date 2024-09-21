@@ -21,14 +21,14 @@ import (
 type mirrorSelection interface {
 	// Selection must return an ordered list of selected mirror,
 	// a list of rejected mirrors and and an error code.
-	Selection(*Context, *filesystem.FileInfo, network.GeoIPRecord, mirrors.Mirrors) (mirrors.Mirrors, mirrors.Mirrors, error)
+	Selection(*Context, *filesystem.FileInfo, network.GeoIPRecord, mirrors.Mirrors, *Configuration) (mirrors.Mirrors, mirrors.Mirrors, error)
 }
 
 // DefaultEngine is the default algorithm used for mirror selection
 type DefaultEngine struct{}
 
 // Selection returns an ordered list of selected mirror, a list of rejected mirrors and and an error code
-func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, pMirrors mirrors.Mirrors) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
+func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, pMirrors mirrors.Mirrors, cnf *Configuration) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
 	mlist = pMirrors
 	// Filter
 	safeIndex := 0
@@ -53,7 +53,7 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 			}
 			goto discard
 		}
-		if GetConfig().SchemaStrictMatch {
+		if cnf.SchemaStrictMatch {
 			if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
 				m.ExcludeReason = "Not HTTPS"
 				goto discard
@@ -71,7 +71,7 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 			}
 			if !m.FileInfo.ModTime.IsZero() {
 				mModTime := m.FileInfo.ModTime
-				if GetConfig().FixTimezoneOffsets {
+				if cnf.FixTimezoneOffsets {
 					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
 				}
 				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
@@ -162,7 +162,7 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 
 		m.ComputedScore = baseScore - int(m.Distance) + 1
 
-		if m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
+		if m.Distance <= closestMirror*cnf.WeightDistributionRange {
 			score := (float32(baseScore) - m.Distance)
 			if !utils.IsPrimaryCountry(clientInfo, m.CountryFields) {
 				score /= 2

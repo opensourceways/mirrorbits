@@ -39,15 +39,6 @@ type Scanner interface {
 	Scan(url, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error)
 }
 
-type filedata struct {
-	path    string
-	sha1    string
-	sha256  string
-	md5     string
-	size    int64
-	modTime time.Time
-}
-
 type scan struct {
 	redis *database.Redis
 	cache *mirrors.Cache
@@ -93,6 +84,10 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		}
 	case core.FTP:
 		scanner = &FTPScanner{
+			scan: s,
+		}
+	case core.HTTP:
+		scanner = &HttpScanner{
 			scan: s,
 		}
 	default:
@@ -223,22 +218,22 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	return res, nil
 }
 
-func (s *scan) ScannerAddFile(f filedata) {
+func (s *scan) ScannerAddFile(f filesystem.FileData) {
 	s.count++
 
 	// Add all the files to a temporary key
-	s.conn.Send("SADD", s.filesTmpKey, f.path)
+	s.conn.Send("SADD", s.filesTmpKey, f.Path)
 
 	// Mark the file as being supported by this mirror
-	rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
+	rk := fmt.Sprintf("FILEMIRRORS_%s", f.Path)
 	s.conn.Send("SADD", rk, s.mirrorid)
 
 	// Save the size of the current file found on this mirror
-	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
-	s.conn.Send("HMSET", ik, "size", f.size, "modTime", f.modTime)
+	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.Path)
+	s.conn.Send("HMSET", ik, "size", f.Size, "modTime", f.ModTime)
 
 	// Publish update
-	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
+	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.Path))
 }
 
 func (s *scan) ScannerDiscard() {
@@ -390,20 +385,16 @@ type sourcescanner struct {
 }
 
 // Walk inside the source/reference repository
-func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
-	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 || strings.HasPrefix(f.Name(), ".") {
-		return nil, nil
+func (s *sourcescanner) walkSource(conn redis.Conn, f os.FileInfo, rehash bool, cnf *Configuration, d *filesystem.FileData) *filesystem.FileData {
+	if d == nil {
+		return nil
 	}
 
-	d := new(filedata)
-	d.path = path[len(GetConfig().Repository):]
-	d.size = f.Size()
-	d.modTime = f.ModTime()
-
 	// Get the previous file properties
-	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
+	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.Path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil && err != redis.ErrNil {
-		return nil, err
+		log.Warningf("%s: get failed from redis: %s", d.Path, err.Error())
+		return nil
 	} else if len(properties) < 5 {
 		// This will force a rehash
 		properties = make([]string, 5)
@@ -416,35 +407,35 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 	md5 := properties[4]
 
 	rehash = rehash ||
-		(GetConfig().Hashes.SHA1 && len(sha1) == 0) ||
-		(GetConfig().Hashes.SHA256 && len(sha256) == 0) ||
-		(GetConfig().Hashes.MD5 && len(md5) == 0)
+		(cnf.Hashes.SHA1 && len(sha1) == 0) ||
+		(cnf.Hashes.SHA256 && len(sha256) == 0) ||
+		(cnf.Hashes.MD5 && len(md5) == 0)
 
-	if rehash || size != d.size || !modTime.Equal(d.modTime) {
-		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
+	if rehash || size != d.Size || !modTime.Equal(d.ModTime) {
+		h, err := filesystem.HashFile(cnf.Repository+filesystem.Sep+d.Path, cnf)
 		if err != nil {
-			log.Warningf("%s: hashing failed: %s", d.path, err.Error())
+			log.Warningf("%s: hashing failed: %s", d.Path, err.Error())
 		} else {
-			d.sha1 = h.Sha1
-			d.sha256 = h.Sha256
-			d.md5 = h.Md5
-			if len(d.sha1) > 0 {
-				log.Infof("%s: SHA1 %s", d.path, d.sha1)
+			d.Sha1 = h.Sha1
+			d.Sha256 = h.Sha256
+			d.Md5 = h.Md5
+			if len(d.Sha1) > 0 {
+				log.Infof("%s: SHA1 %s", d.Path, d.Sha1)
 			}
-			if len(d.sha256) > 0 {
-				log.Infof("%s: SHA256 %s", d.path, d.sha256)
+			if len(d.Sha256) > 0 {
+				log.Infof("%s: SHA256 %s", d.Path, d.Sha256)
 			}
-			if len(d.md5) > 0 {
-				log.Infof("%s: MD5 %s", d.path, d.md5)
+			if len(d.Md5) > 0 {
+				log.Infof("%s: MD5 %s", d.Path, d.Md5)
 			}
 		}
 	} else {
-		d.sha1 = sha1
-		d.sha256 = sha256
-		d.md5 = md5
+		d.Sha1 = sha1
+		d.Sha256 = sha256
+		d.Md5 = md5
 	}
 
-	return d, nil
+	return d
 }
 
 // ScanSource starts a scan of the local repository
@@ -458,26 +449,26 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		return conn.Err()
 	}
 
-	sourceFiles := make([]*filedata, 0, 1000)
+	sourceFiles := make([]*filesystem.FileData, 0, 1000)
 
 	//TODO lock atomically inside redis to avoid two simultaneous scan
-
-	if _, err := os.Stat(GetConfig().Repository); os.IsNotExist(err) {
-		return fmt.Errorf("%s: No such file or directory", GetConfig().Repository)
+	cnf := GetConfig()
+	if _, err := os.Stat(cnf.Repository); os.IsNotExist(err) {
+		return fmt.Errorf("%s: No such file or directory", cnf.Repository)
 	}
 
 	log.Info("[source] Scanning the filesystem...")
-	prefixLen := len(GetConfig().Repository + filesystem.Sep)
-	err = filepath.Walk(GetConfig().Repository, func(path string, f os.FileInfo, err error) error {
+	prefixLen := len(cnf.Repository + filesystem.Sep)
+	if size := len(filesystem.FileTree.Mapping); size != 0 {
+		filesystem.FileTree.Mapping = make(map[string]*filesystem.LayerFile, (len(filesystem.FileTree.Mapping)<<1)+1)
+	}
+	err = filepath.Walk(cnf.Repository, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !f.IsDir() && filesystem.Filter(path) {
-			filesystem.FileTree.Root.LayeringPath(filesystem.FileTree.M, path[prefixLen:])
-			fd, err1 := s.walkSource(conn, path, f, forceRehash, err)
-			if err1 != nil {
-				return err1
-			}
+		if f != nil && !f.IsDir() && !strings.HasPrefix(f.Name(), ".") && filesystem.Filter(path[prefixLen:]) {
+			fd := filesystem.FileTree.Root.LayeringPath(path[prefixLen:], cnf)
+			fd = s.walkSource(conn, f, forceRehash, cnf, fd)
 			if fd != nil {
 				sourceFiles = append(sourceFiles, fd)
 			}
@@ -521,7 +512,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 	// Add all the files to a temporary key
 	count := 0
 	for _, e := range sourceFiles {
-		conn.Send("SADD", "FILES_TMP", e.path)
+		conn.Send("SADD", "FILES_TMP", e.Path)
 		count++
 	}
 
@@ -536,15 +527,15 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 	// Create/Update the files' hash keys with the fresh infos
 	conn.Send("MULTI")
 	for _, e := range sourceFiles {
-		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
-			"size", e.size,
-			"modTime", e.modTime,
-			"sha1", e.sha1,
-			"sha256", e.sha256,
-			"md5", e.md5)
+		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.Path),
+			"size", e.Size,
+			"modTime", e.ModTime,
+			"sha1", e.Sha1,
+			"sha256", e.Sha256,
+			"md5", e.Md5)
 
 		// Publish update
-		database.SendPublish(conn, database.FILE_UPDATE, e.path)
+		database.SendPublish(conn, database.FILE_UPDATE, e.Path)
 	}
 
 	// Remove old keys

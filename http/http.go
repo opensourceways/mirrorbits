@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/opensourceways/mirrorbits/logs"
 	"html/template"
 	"math/rand"
 	"net"
@@ -26,7 +27,6 @@ import (
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/filesystem"
-	"github.com/opensourceways/mirrorbits/logs"
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
@@ -77,8 +77,6 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 		writer.WriteHeader(200)
 		writer.Write([]byte("ok"))
 	})
-
-	filesystem.InitPathFilter(GetConfig().RepositoryFilter)
 
 	// Load the GeoIP databases
 	if err := h.geoip.LoadGeoIP(); err != nil {
@@ -139,6 +137,7 @@ func (h *HTTP) StopChan() <-chan struct{} {
 
 // Reload the configuration
 func (h *HTTP) Reload() {
+	filesystem.InitPathFilter(GetConfig().RepositoryFilter)
 	// Reload the GeoIP database
 	h.geoip.LoadGeoIP()
 
@@ -227,35 +226,20 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 // select mirrors based on file or directory
 func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo,
 	clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
+
+	cnf := GetConfig()
+
+	relPath, err := filepath.Abs(cnf.Repository + fileInfo.Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	_, err = os.Stat(relPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	var fileList []*filesystem.FileInfo
 
-	relPath, err := filepath.Abs(GetConfig().Repository + fileInfo.Path)
-	if err != nil {
-		return nil, nil, err
-	}
-	f, err := os.Stat(relPath)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if f.IsDir() {
-		//try sub file instead
-		err = filepath.Walk(relPath, func(path string, info os.FileInfo, err error) error {
-			//skip directory or filename start with .
-			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
-				return nil
-			}
-			// only collect ten files at most
-			newFileInfo := filesystem.NewFileInfo(path[len(GetConfig().Repository):])
-			fileList = append(fileList, &newFileInfo)
-			return nil
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		fileList = append(fileList, fileInfo)
-	}
 	if len(fileList) == 0 {
 		return nil, nil, errors.New(fmt.Sprintf("unable to get files from local path for requested file %s", fileInfo.Path))
 	}
@@ -295,7 +279,7 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 		return nil, nil, errors.New("neither of mirrors have requested file(s)")
 	}
 	//since all files are found in mirrors, we can use first file for detection
-	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList)
+	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList, cnf)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,9 +288,29 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
+	ip, _ := network.LookupMirrorIP("repo.openeuler.org")
+	println("====" + ip)
+
+	cnf := GetConfig()
+
+	var results *mirrors.Results
+	var repoVersion []filesystem.DisplayRepoVersion
+	if len(r.URL.Path) <= 1 && filesystem.FileTree.Mapping != nil {
+		if len(filesystem.FileTree.Mapping) != filesystem.RepoSourceFileNum {
+			filesystem.CollectRepoVersionList()
+		}
+		repoVersion = filesystem.RepoVersionList
+
+		results = &mirrors.Results{
+			RepoVersion: repoVersion,
+		}
+
+		handlerRes(w, r, ctx, results, cnf)
+		return
+	}
 
 	// Sanitize path
-	_, urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
+	_, urlPath, err := filesystem.EvaluateFilePath(cnf.Repository, r.URL.Path)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -329,7 +333,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			remoteIP = fromip
 		}
 	}
-
+	remoteIP = "124.70.105.51"
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
 	log.Infof("client %s request file %s", remoteIP, fileInfo.Path)
 
@@ -340,7 +344,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	if _, ok := err.(net.Error); ok || len(mlist) == 0 {
 		log.Errorf("failed to get mirror info, error: %v and mirror size %d", err, len(mlist))
 		/* Handle fallbacks */
-		fallbacks := GetConfig().Fallbacks
+		fallbacks := cnf.Fallbacks
 		if len(fallbacks) > 0 {
 			fallback = true
 			for i, f := range fallbacks {
@@ -383,42 +387,15 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 		tempMlist = append(tempMlist, ml)
 	}
-	var fileTree []filesystem.DisplayFileArray
+	var fileTree []filesystem.DisplayFileList
 	if len(urlPath) > 0 {
-		fileTree = (*filesystem.FileTree.M[urlPath[1:]]).Flattening()
-	}
-	var repoVersion []filesystem.DisplayRepoVersion
-	if len(urlPath) == 0 {
-		for k := range filesystem.FileTree.M {
-			pathArr := strings.Split(k, filesystem.Sep)
-			if len(pathArr) == 1 {
-				var scenario []string
-				var arch []string
-				for _, v := range filesystem.Scenario {
-					if _, ok := filesystem.FileTree.M[pathArr[0]+filesystem.Sep+v]; ok {
-						scenario = append(scenario, v)
-					}
-				}
-				for _, v := range filesystem.Arch {
-					for _, v1 := range scenario {
-						if _, ok := filesystem.FileTree.M[pathArr[0]+filesystem.Sep+v1+filesystem.Sep+v]; ok {
-							arch = append(arch, v)
-							break
-						}
-					}
-				}
-				repoVersion = append(repoVersion, filesystem.DisplayRepoVersion{
-					Version:  pathArr[0],
-					Scenario: scenario,
-					Arch:     arch,
-					LTS:      strings.Contains(pathArr[0], "LTS"),
-				})
-			}
-
+		p, ok := filesystem.FileTree.Mapping[urlPath[1:]]
+		if ok {
+			fileTree = (*p).Flattening()
 		}
 	}
 
-	results := &mirrors.Results{
+	results = &mirrors.Results{
 		FileInfo:     fileInfo,
 		FileTree:     fileTree,
 		RepoVersion:  repoVersion,
@@ -427,15 +404,27 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		ClientInfo:   clientInfo,
 		IP:           remoteIP,
 		Fallback:     fallback,
-		LocalJSPath:  GetConfig().LocalJSPath,
+		LocalJSPath:  cnf.LocalJSPath,
 	}
 
+	handlerRes(w, r, ctx, results, cnf)
+
+	if !ctx.IsMirrorlist() {
+		if len(mlist) > 0 {
+			h.stats.CountDownload(mlist[0], fileInfo)
+		}
+	}
+
+	return
+}
+
+func handlerRes(w http.ResponseWriter, r *http.Request, ctx *Context, results *mirrors.Results, cnf *Configuration) {
 	var resultRenderer resultsRenderer
 
 	if ctx.IsMirrorlist() {
 		resultRenderer = &MirrorListRenderer{}
 	} else {
-		switch GetConfig().OutputMode {
+		switch cnf.OutputMode {
 		case "json":
 			resultRenderer = &JSONRenderer{}
 		case "redirect":
@@ -462,12 +451,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), status, results, err)
-		if len(mlist) > 0 {
-			h.stats.CountDownload(mlist[0], fileInfo)
-		}
 	}
-
-	return
 }
 
 // LoadTemplates pre-loads templates from the configured template directory

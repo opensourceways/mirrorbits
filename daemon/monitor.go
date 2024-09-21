@@ -6,6 +6,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"github.com/opensourceways/mirrorbits/filesystem"
 	"math/rand"
 	"net"
 	"net/http"
@@ -61,12 +62,12 @@ type mirror struct {
 	lastCheck time.Time
 }
 
-func (m *mirror) NeedHealthCheck() bool {
-	return time.Since(m.lastCheck) > time.Duration(GetConfig().CheckInterval)*time.Minute
+func (m *mirror) NeedHealthCheck(checkInterval int) bool {
+	return time.Since(m.lastCheck) > time.Duration(checkInterval)*time.Minute
 }
 
-func (m *mirror) NeedSync() bool {
-	return time.Since(m.LastSync.Time) > time.Duration(GetConfig().ScanInterval)*time.Minute
+func (m *mirror) NeedSync(scanInterval int) bool {
+	return time.Since(m.LastSync.Time) > time.Duration(scanInterval)*time.Minute
 }
 
 func (m *mirror) IsScanning() bool {
@@ -165,6 +166,8 @@ func (m *monitor) MonitorLoop() {
 		break
 	}
 
+	cnf := GetConfig()
+	filesystem.InitPathFilter(cnf.RepositoryFilter)
 	// Scan the local repository
 	m.retry(func(i uint) error {
 		err := m.scanRepository()
@@ -208,9 +211,8 @@ func (m *monitor) MonitorLoop() {
 		m.wg.Add(1)
 		go m.healthCheckLoop()
 	}
-
 	// Start the mirror sync routines
-	for i := 0; i < GetConfig().ConcurrentSync; i++ {
+	for i := 0; i < cnf.ConcurrentSync; i++ {
 		m.wg.Add(1)
 		go m.syncLoop()
 	}
@@ -218,7 +220,7 @@ func (m *monitor) MonitorLoop() {
 	// Setup recurrent tasks
 	var repositoryScanTicker <-chan time.Time
 	repositoryScanInterval := -1
-	mirrorCheckTicker := time.NewTicker(1 * time.Second)
+	mirrorCheckTicker := time.NewTicker(30 * time.Second)
 
 	// Disable the mirror check while stopping to avoid spurious events
 	go func() {
@@ -244,8 +246,8 @@ func (m *monitor) MonitorLoop() {
 				m.syncMirrorList(id)
 			}
 		case <-m.configNotifier:
-			if repositoryScanInterval != GetConfig().RepositoryScanInterval {
-				repositoryScanInterval = GetConfig().RepositoryScanInterval
+			if repositoryScanInterval != cnf.RepositoryScanInterval {
+				repositoryScanInterval = cnf.RepositoryScanInterval
 
 				if repositoryScanInterval == 0 {
 					repositoryScanTicker = nil
@@ -259,20 +261,21 @@ func (m *monitor) MonitorLoop() {
 			if m.redis.Failure() {
 				continue
 			}
+			mirrorCheckTicker.Stop()
 			m.mapLock.Lock()
 			for id, v := range m.mirrors {
 				if !v.Enabled {
 					// Ignore disabled mirrors
 					continue
 				}
-				if v.NeedHealthCheck() && !v.IsChecking() && m.cluster.IsHandled(id) {
+				if v.NeedHealthCheck(cnf.CheckInterval) && !v.IsChecking() && m.cluster.IsHandled(id) {
 					select {
 					case m.healthCheckChan <- id:
 						m.mirrors[id].checking = true
 					default:
 					}
 				}
-				if v.NeedSync() && !v.IsScanning() && m.cluster.IsHandled(id) {
+				if v.NeedSync(cnf.ScanInterval) && !v.IsScanning() && m.cluster.IsHandled(id) {
 					select {
 					case m.syncChan <- id:
 						m.mirrors[id].scanning = true
@@ -424,7 +427,7 @@ func (m *monitor) syncLoop() {
 			}
 			conn.Close()
 
-			log.Debugf("Scanning %s", mir.Name)
+			log.Infof("Scanning %s", mir.Name)
 
 			// Start fetching the latest trace
 			go func() {
@@ -443,15 +446,19 @@ func (m *monitor) syncLoop() {
 
 			err = scan.ErrNoSyncMethod
 
-			// First try to scan with rsync
-			if mir.RsyncURL != "" {
-				_, err = scan.Scan(core.RSYNC, m.redis, m.cache, mir.RsyncURL, id, m.stop)
+			if mir.HttpURL != "" {
+				log.Error("-------,,,,,,,,,1231231")
+				_, err = scan.Scan(core.HTTP, m.redis, m.cache, mir.HttpURL, id, m.stop)
 			}
+			// First try to scan with rsync
+			//if mir.RsyncURL != "" {
+			//	_, err = scan.Scan(core.RSYNC, m.redis, m.cache, mir.RsyncURL, id, m.stop)
+			//}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
-			if err != nil && err != scan.ErrScanAborted && mir.FtpURL != "" {
-				_, err = scan.Scan(core.FTP, m.redis, m.cache, mir.FtpURL, id, m.stop)
-			}
+			//if err != nil && err != scan.ErrScanAborted && mir.FtpURL != "" {
+			//	_, err = scan.Scan(core.FTP, m.redis, m.cache, mir.FtpURL, id, m.stop)
+			//}
 
 			if err == scan.ErrScanInProgress {
 				log.Warningf("%-30.30s Scan already in progress", mir.Name)
@@ -615,8 +622,9 @@ func (m *monitor) getRandomFile(id int) (file string, size int64, err error) {
 
 // Trigger a sync of the local repository
 func (m *monitor) scanRepository() error {
+	log.Error("++++++++++++ scan repo start +++++++++++++++")
 	err := scan.ScanSource(m.redis, false, m.stop)
-	log.Error("扫描一次本地路径")
+	log.Error("------------ scan repo end -----------------")
 	if err != nil {
 		log.Errorf("Scanning source failed: %s", err.Error())
 	}

@@ -66,7 +66,6 @@ func defaultConfig() Configuration {
 // Configuration contains all the option available in the yaml file
 type Configuration struct {
 	Repository              string     `yaml:"Repository"`
-	RepositoryFilter        DirFilter  `yaml:"RepositoryFilter"`
 	Templates               string     `yaml:"Templates"`
 	LocalJSPath             string     `yaml:"LocalJSPath"`
 	OutputMode              string     `yaml:"OutputMode"`
@@ -96,11 +95,26 @@ type Configuration struct {
 
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
+
+	RepositoryFilter       DirFilter        `yaml:"RepositoryFilter"`
+	RepoVersion            SupportLevel     `yaml:"RepoVersion"`
+	RepoFileIntoVersion    []FileVersionMap `yaml:"RepoFileIntoVersion"`
+	DBExcludeFileExtension []string         `yaml:"DBExcludeFileExtension"`
 }
 
 type DirFilter struct {
 	SecondDir []string `yaml:"SecondDir"`
 	ThirdDir  []string `yaml:"ThirdDir"`
+}
+
+type SupportLevel struct {
+	LTS  []string `yaml:"lts"`
+	Stop []string `yaml:"stop"`
+}
+
+type FileVersionMap struct {
+	FilePath string `yaml:"FilePath"`
+	Version  string `yaml:"Version"`
 }
 
 type fallback struct {
@@ -173,8 +187,6 @@ func ReloadConfig() error {
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
 	}
-
-	//
 
 	if config != nil &&
 		(c.RedisAddress != config.RedisAddress ||

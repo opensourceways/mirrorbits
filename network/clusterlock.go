@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/opensourceways/mirrorbits/database"
 	"github.com/gomodule/redigo/redis"
+	"github.com/opensourceways/mirrorbits/database"
 )
 
 const (
@@ -64,14 +64,19 @@ func (n *ClusterLock) Get() (<-chan struct{}, error) {
 	go func() {
 		conn := n.redis.Get()
 		defer conn.Close()
-
+		timer := time.NewTimer(lockRefresh * time.Second)
 		for {
 			select {
 			case <-n.done:
 				n.done = nil
 				conn.Do("DEL", n.key)
 				return
-			case <-time.After(lockRefresh * time.Second):
+			case <-timer.C:
+				log.Error("看看会不会超时")
+				if !timer.Stop() {
+					<-timer.C
+				}
+				timer.Reset(lockRefresh * time.Second)
 				result, err := redis.Int(conn.Do("EXPIRE", n.key, lockTTL))
 				if err != nil {
 					log.Errorf("Renewing lock for %s failed: %s", n.identifier, err)

@@ -5,14 +5,15 @@ package scan
 
 import (
 	"fmt"
+	"github.com/opensourceways/mirrorbits/filesystem"
 	"net/url"
 	"strings"
 	"time"
 
 	ftp "github.com/etix/goftp"
+	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
 )
 
 const (
@@ -79,7 +80,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 
 	log.Infof("[%s] Requesting file list via ftp...", identifier)
 
-	files := make([]*filedata, 0, 1000)
+	files := make([]*filesystem.FileData, 0, 1000)
 
 	err = c.ChangeDir(ftpurl.Path)
 	if err != nil {
@@ -101,7 +102,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 
 	count := 0
 	for _, fd := range files {
-		fd.path = strings.TrimPrefix(fd.path, prefix)
+		fd.Path = strings.TrimPrefix(fd.Path, prefix)
 		f.scan.ScannerAddFile(*fd)
 		count++
 	}
@@ -110,7 +111,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 }
 
 // Walk inside an FTP repository
-func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop <-chan struct{}) ([]*filedata, error) {
+func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filesystem.FileData, path string, stop <-chan struct{}) ([]*filesystem.FileData, error) {
 	if utils.IsStopped(stop) {
 		return nil, ErrScanAborted
 	}
@@ -121,18 +122,18 @@ func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, 
 	}
 	for _, e := range flist {
 		if e.Type == ftp.EntryTypeFile {
-			newf := &filedata{}
-			newf.path = path + e.Name
-			newf.size = int64(e.Size)
+			newf := &filesystem.FileData{}
+			newf.Path = path + e.Name
+			newf.Size = int64(e.Size)
 
 			if f.featMDTM {
 				t, _ := c.LastModificationDate(path + e.Name)
 				if !t.IsZero() {
-					newf.modTime = t
+					newf.ModTime = t
 
 					if f.precision != core.Precision(time.Millisecond) {
 						// We are not yet sure that we can have millisecond precision
-						if newf.modTime.Truncate(time.Second).Equal(newf.modTime) {
+						if newf.ModTime.Truncate(time.Second).Equal(newf.ModTime) {
 							// The mod time is precise up to the second (for this file)
 							f.precision = core.Precision(time.Second)
 						} else {
@@ -142,14 +143,14 @@ func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, 
 					}
 				}
 			}
-			if newf.modTime.IsZero() {
+			if newf.ModTime.IsZero() {
 				if f.featMLST {
-					newf.modTime = e.Time
+					newf.ModTime = e.Time
 					if f.precision == 0 {
 						f.precision = core.Precision(time.Second)
 					}
 				} else {
-					newf.modTime = time.Time{}
+					newf.ModTime = time.Time{}
 				}
 			}
 			files = append(files, newf)

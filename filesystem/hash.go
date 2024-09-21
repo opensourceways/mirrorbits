@@ -17,7 +17,7 @@ import (
 )
 
 // HashFile generates a human readable hash of the given file path
-func HashFile(path string) (hashes FileInfo, err error) {
+func HashFile(path string, cnf *Configuration) (hashes FileInfo, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -28,17 +28,17 @@ func HashFile(path string) (hashes FileInfo, err error) {
 
 	var writers []io.Writer
 
-	if GetConfig().Hashes.SHA1 {
+	if cnf.Hashes.SHA1 {
 		hsha1 := newHasher(sha1.New(), &hashes.Sha1)
 		defer hsha1.Close()
 		writers = append(writers, hsha1)
 	}
-	if GetConfig().Hashes.SHA256 {
+	if cnf.Hashes.SHA256 {
 		hsha256 := newHasher(sha256.New(), &hashes.Sha256)
 		defer hsha256.Close()
 		writers = append(writers, hsha256)
 	}
-	if GetConfig().Hashes.MD5 {
+	if cnf.Hashes.MD5 {
 		hmd5 := newHasher(md5.New(), &hashes.Md5)
 		defer hmd5.Close()
 		writers = append(writers, hmd5)
