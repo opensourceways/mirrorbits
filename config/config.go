@@ -96,20 +96,21 @@ type Configuration struct {
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
 
-	RepositoryFilter       DirFilter        `yaml:"RepositoryFilter"`
-	RepoVersion            SupportLevel     `yaml:"RepoVersion"`
-	RepoFileIntoVersion    []FileVersionMap `yaml:"RepoFileIntoVersion"`
-	DBExcludeFileExtension []string         `yaml:"DBExcludeFileExtension"`
+	RepositoryFilter    DirFilter        `yaml:"RepositoryFilter"`
+	RepoFileIntoVersion []FileVersionMap `yaml:"RepoFileIntoVersion"`
+}
+
+type ParticularFileMapping struct {
+	VersionName  string   `yaml:"VersionName"`
+	ScenarioName string   `yaml:"ScenarioName"`
+	ArchName     string   `yaml:"ArchName"`
+	SourcePath   []string `yaml:"SourcePath"`
 }
 
 type DirFilter struct {
-	SecondDir []string `yaml:"SecondDir"`
-	ThirdDir  []string `yaml:"ThirdDir"`
-}
-
-type SupportLevel struct {
-	LTS  []string `yaml:"lts"`
-	Stop []string `yaml:"stop"`
+	SecondDir      []string                `yaml:"SecondDir"`
+	ThirdDir       []string                `yaml:"ThirdDir"`
+	ParticularFile []ParticularFileMapping `yaml:"ParticularFileMapping"`
 }
 
 type FileVersionMap struct {

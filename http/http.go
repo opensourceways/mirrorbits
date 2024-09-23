@@ -238,46 +238,20 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 		return nil, nil, err
 	}
 
-	var fileList []*filesystem.FileInfo
-
+	// Prepare and return the list of all potential mirrors
+	fileList := filesystem.GetSelectorList()
 	if len(fileList) == 0 {
-		return nil, nil, errors.New(fmt.Sprintf("unable to get files from local path for requested file %s", fileInfo.Path))
+		return nil, nil, nil
 	}
-	var allMirrorList mirrors.Mirrors
-	mapMirror := make(map[string]string)
-	for i, f := range fileList {
-		_, err = cache.GetFileInfo(f.Path)
-		if err != nil {
-			log.Errorf("unable to find file %s from cache", f.Path)
-			continue
-		}
-		mlist, err := cache.GetMirrors(f.Path, clientInfo)
-		if err != nil {
-			log.Errorf("unable to get mirror for file %s ", f.Path)
-			continue
-		}
-		//append mirrors only when both included
-		if i == 0 {
-			for _, m := range mlist {
-				allMirrorList = append(allMirrorList, m)
-				mapMirror[m.Name] = m.Name
-				//m.Country = m.CountryCodes
-			}
-		} else {
-			var tempMirror mirrors.Mirrors
-			for _, m := range mlist {
-				//m.Country = m.CountryCodes
-				if _, ok := mapMirror[m.Name]; ok {
-					tempMirror = append(tempMirror, m)
-				}
-			}
-			allMirrorList = tempMirror
-		}
+	allMirrorList, err := cache.GetMirrors(strings.ReplaceAll(fileList[0].Dir, filesystem.Sep, "/")+"/"+fileList[0].Name, clientInfo)
+	if err != nil {
+		return nil, nil, err
 	}
 	log.Infof("all mirrors are scanned and there are %d valid mirrors.", len(allMirrorList))
 	if len(allMirrorList) == 0 {
 		return nil, nil, errors.New("neither of mirrors have requested file(s)")
 	}
+
 	//since all files are found in mirrors, we can use first file for detection
 	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList, cnf)
 	if err != nil {
@@ -288,21 +262,13 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
-	ip, _ := network.LookupMirrorIP("repo.openeuler.org")
-	println("====" + ip)
 
 	cnf := GetConfig()
 
 	var results *mirrors.Results
-	var repoVersion []filesystem.DisplayRepoVersion
-	if len(r.URL.Path) <= 1 && filesystem.FileTree.Mapping != nil {
-		if len(filesystem.FileTree.Mapping) != filesystem.RepoSourceFileNum {
-			filesystem.CollectRepoVersionList()
-		}
-		repoVersion = filesystem.RepoVersionList
-
+	if len(r.URL.Path) <= 1 {
 		results = &mirrors.Results{
-			RepoVersion: repoVersion,
+			RepoVersion: filesystem.GetRepoVersionList(),
 		}
 
 		handlerRes(w, r, ctx, results, cnf)
@@ -333,7 +299,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			remoteIP = fromip
 		}
 	}
-	remoteIP = "124.70.105.51"
+
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
 	log.Infof("client %s request file %s", remoteIP, fileInfo.Path)
 
@@ -371,34 +337,25 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	tempMlist := make([]mirrors.Mirror, len(mlist))
-	for _, ml := range mlist {
-		if ml.CountryCodes == "TWN" || ml.CountryCodes == "TPE" || ml.CountryCodes == "TW" {
-			ml.CountryCodes = "CN"
-			ml.Country = "China"
-		} else if ml.CountryCodes == "HK" ||
-			ml.CountryCodes == "HKSAR" || ml.CountryCodes == "HKG" {
-			ml.CountryCodes = "CN"
-			ml.Country = "China"
-		} else if ml.CountryCodes == "MO" ||
-			ml.CountryCodes == "MC" || ml.CountryCodes == "OMA" {
-			ml.CountryCodes = "CN"
-			ml.Country = "China"
-		}
-		tempMlist = append(tempMlist, ml)
-	}
-	var fileTree []filesystem.DisplayFileList
-	if len(urlPath) > 0 {
-		p, ok := filesystem.FileTree.Mapping[urlPath[1:]]
-		if ok {
-			fileTree = (*p).Flattening()
+
+	for i := range mlist {
+		if mlist[i].CountryCodes == "TWN" || mlist[i].CountryCodes == "TPE" || mlist[i].CountryCodes == "TW" {
+			mlist[i].CountryCodes = "CN"
+			mlist[i].Country = "China"
+		} else if mlist[i].CountryCodes == "HK" ||
+			mlist[i].CountryCodes == "HKSAR" || mlist[i].CountryCodes == "HKG" {
+			mlist[i].CountryCodes = "CN"
+			mlist[i].Country = "China"
+		} else if mlist[i].CountryCodes == "MO" ||
+			mlist[i].CountryCodes == "MC" || mlist[i].CountryCodes == "OMA" {
+			mlist[i].CountryCodes = "CN"
+			mlist[i].Country = "China"
 		}
 	}
 
 	results = &mirrors.Results{
 		FileInfo:     fileInfo,
-		FileTree:     fileTree,
-		RepoVersion:  repoVersion,
+		FileTree:     filesystem.GetRepoFileList(urlPath[1:], cnf.RepositoryFilter),
 		MirrorList:   mlist,
 		ExcludedList: excluded,
 		ClientInfo:   clientInfo,

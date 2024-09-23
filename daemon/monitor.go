@@ -28,7 +28,7 @@ import (
 
 var (
 	healthCheckThreads  = 10
-	userAgent           = "Mirrorbits/" + core.VERSION + " PING CHECK"
+	userAgent           = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 	clientTimeout       = time.Duration(20 * time.Second)
 	clientDeadline      = time.Duration(40 * time.Second)
 	errRedirect         = errors.New("Redirect not allowed")
@@ -261,7 +261,8 @@ func (m *monitor) MonitorLoop() {
 			if m.redis.Failure() {
 				continue
 			}
-			mirrorCheckTicker.Stop()
+			//mirrorCheckTicker.Stop()
+			//mirrorCheckTicker.Reset()
 			m.mapLock.Lock()
 			for id, v := range m.mirrors {
 				if !v.Enabled {
@@ -496,7 +497,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 	}
 
 	// Prepare the HTTP request
-	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
+	req, err := http.NewRequest("HEAD", mirror.HttpURL+"/"+file, nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 

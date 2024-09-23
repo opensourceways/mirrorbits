@@ -117,7 +117,6 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	s.setLastSync(conn, id, typ, 0, false)
 
-	mirrors.PushLog(r, mirrors.NewLogScanStarted(id, typ))
 	defer func(err *error) {
 		if err != nil && *err != nil {
 			mirrors.PushLog(r, mirrors.NewLogError(id, *err))
@@ -133,7 +132,9 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	conn.Send("DEL", s.filesTmpKey)
 
 	var precision core.Precision
+	t1 := time.Now()
 	precision, err = scanner.Scan(url, name, conn, stop)
+	log.Infof("[%s] scan files cost time = %4.8f s \n", name, time.Since(t1).Seconds())
 	if err != nil {
 		// Discard MULTI
 		s.ScannerDiscard()
@@ -207,13 +208,6 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		Removed:      int64(len(toremove)),
 		TZOffsetMs:   tzoffset,
 	}
-
-	mirrors.PushLog(r, mirrors.NewLogScanCompleted(
-		res.MirrorID,
-		res.FilesIndexed,
-		res.KnownIndexed,
-		res.Removed,
-		res.TZOffsetMs))
 
 	return res, nil
 }
@@ -459,15 +453,12 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	log.Info("[source] Scanning the filesystem...")
 	prefixLen := len(cnf.Repository + filesystem.Sep)
-	if size := len(filesystem.FileTree.Mapping); size != 0 {
-		filesystem.FileTree.Mapping = make(map[string]*filesystem.LayerFile, (len(filesystem.FileTree.Mapping)<<1)+1)
-	}
 	err = filepath.Walk(cnf.Repository, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if f != nil && !f.IsDir() && !strings.HasPrefix(f.Name(), ".") && filesystem.Filter(path[prefixLen:]) {
-			fd := filesystem.FileTree.Root.LayeringPath(path[prefixLen:], cnf)
+			fd := filesystem.BuildFileTree(path[prefixLen:], cnf)
 			fd = s.walkSource(conn, f, forceRehash, cnf, fd)
 			if fd != nil {
 				sourceFiles = append(sourceFiles, fd)
@@ -476,6 +467,8 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 		return nil
 	})
+
+	filesystem.UpdateFileTree(cnf.RepositoryFilter)
 
 	if utils.IsStopped(stop) {
 		return ErrScanAborted

@@ -3,9 +3,11 @@
 package scan
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/core"
+	"github.com/opensourceways/mirrorbits/filesystem"
 	"github.com/opensourceways/mirrorbits/utils"
 	"net/http"
 	"net/url"
@@ -15,12 +17,12 @@ import (
 
 var client = &http.Client{
 	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		MaxConnsPerHost:     10,
+		MaxIdleConns:        200,
+		MaxIdleConnsPerHost: 100,
+		MaxConnsPerHost:     100,
 		IdleConnTimeout:     300 * time.Second,
 	},
-	Timeout: 10 * time.Second,
+	Timeout: 30 * time.Second,
 }
 
 // HttpScanner is the implementation of an rsync scanner
@@ -44,12 +46,38 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-c
 		return 0, err
 	}
 
-	resp, err := client.Head(uri.String())
+	req, err := http.NewRequest("HEAD", uri.String(), nil)
 	if err != nil {
 		return 0, err
 	}
-	if resp.StatusCode == http.StatusOK {
-		return core.Precision(time.Second), nil
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return 0, errors.New("mirror http url: " + resp.Status + " " + httpUrl + " request failed")
+	}
+
+	fileList := filesystem.GetSelectorList()
+	fd := filesystem.FileData{}
+	for _, fl := range fileList {
+		fileUrl := strings.ReplaceAll(fl.Dir, filesystem.Sep, "/") + "/" + fl.Name
+		req1, _ := http.NewRequest("HEAD", uri.String()+"/"+fileUrl, nil)
+		req1.Header.Set("User-Agent", userAgent)
+		resp1, err1 := client.Do(req)
+		if err1 != nil {
+			return 0, err
+		}
+		if resp1.StatusCode != http.StatusOK {
+			return 0, errors.New("mirror file http url: " + uri.String() + "/" + fileUrl + " request failed")
+		}
+
+		fd.Path = fileUrl
+		fd.Size = fl.Size
+		fd.ModTime = fl.ModTime
+		r.scan.ScannerAddFile(fd)
 	}
 
 	return 0, nil
