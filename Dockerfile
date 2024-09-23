@@ -25,5 +25,5 @@ WORKDIR /opt/mirrorbits
 
 RUN cd /opt/mirrorbits/python-scripts && python3 -m venv venv && ./venv/bin/pip install pyyaml prettytable
 
-ENTRYPOINT geoipupdate -f /vault/secrets/GeoIP.conf -d /opt/mirrorbits/GeoIP && rm -f /etc/GeoIP.conf && mirrorbits daemon -config /vault/secrets/mirrorbits.conf
+ENTRYPOINT geoipupdate -f /vault/secrets/GeoIP.conf -d /opt/mirrorbits/GeoIP && rm -f /vault/secrets/GeoIP.conf && mirrorbits daemon -config /vault/secrets/mirrorbits.conf
 EXPOSE 8080
