@@ -379,7 +379,7 @@ type sourcescanner struct {
 }
 
 // Walk inside the source/reference repository
-func (s *sourcescanner) walkSource(conn redis.Conn, f os.FileInfo, rehash bool, cnf *Configuration, d *filesystem.FileData) *filesystem.FileData {
+func (s *sourcescanner) walkSource(conn redis.Conn, d *filesystem.FileData) *filesystem.FileData {
 	if d == nil {
 		return nil
 	}
@@ -396,39 +396,12 @@ func (s *sourcescanner) walkSource(conn redis.Conn, f os.FileInfo, rehash bool, 
 
 	size, _ := strconv.ParseInt(properties[0], 10, 64)
 	modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", properties[1])
-	sha1 := properties[2]
 	sha256 := properties[3]
-	md5 := properties[4]
 
-	rehash = rehash ||
-		(cnf.Hashes.SHA1 && len(sha1) == 0) ||
-		(cnf.Hashes.SHA256 && len(sha256) == 0) ||
-		(cnf.Hashes.MD5 && len(md5) == 0)
-
-	if rehash || size != d.Size || !modTime.Equal(d.ModTime) {
-		h, err := filesystem.HashFile(cnf.Repository+filesystem.Sep+d.Path, cnf)
-		if err != nil {
-			log.Warningf("%s: hashing failed: %s", d.Path, err.Error())
-		} else {
-			d.Sha1 = h.Sha1
-			d.Sha256 = h.Sha256
-			d.Md5 = h.Md5
-			if len(d.Sha1) > 0 {
-				log.Infof("%s: SHA1 %s", d.Path, d.Sha1)
-			}
-			if len(d.Sha256) > 0 {
-				log.Infof("%s: SHA256 %s", d.Path, d.Sha256)
-			}
-			if len(d.Md5) > 0 {
-				log.Infof("%s: MD5 %s", d.Path, d.Md5)
-			}
-		}
-	} else {
-		d.Sha1 = sha1
-		d.Sha256 = sha256
-		d.Md5 = md5
+	if size != d.Size || !modTime.Equal(d.ModTime) || d.Sha256 != sha256 {
+		log.Infof("[Old] %s: SIZE = %s, MODTIME = %s, SHA256 %s", d.Path, properties[0], modTime.String(), d.Sha256)
+		log.Infof("[New] %s: SIZE = %s, MODTIME = %s, SHA256 %s", d.Path, strconv.FormatInt(d.Size, 10), d.ModTime.String(), d.Sha256)
 	}
-
 	return d
 }
 
@@ -459,7 +432,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		}
 		if f != nil && !f.IsDir() && !strings.HasPrefix(f.Name(), ".") && filesystem.Filter(path[prefixLen:]) {
 			fd := filesystem.BuildFileTree(path[prefixLen:], cnf)
-			fd = s.walkSource(conn, f, forceRehash, cnf, fd)
+			fd = s.walkSource(conn, fd)
 			if fd != nil {
 				sourceFiles = append(sourceFiles, fd)
 			}

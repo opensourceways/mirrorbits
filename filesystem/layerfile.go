@@ -176,6 +176,9 @@ func Filter(path string) bool {
 	if path[:10] != "openEuler-" {
 		return false
 	}
+	if strings.HasSuffix(path, FileExtensionSha256) {
+		return false
+	}
 	for _, v := range pathFilter {
 		if strings.Contains(path, v) {
 			return true
@@ -236,13 +239,12 @@ func (ft *LayerFile) setFileData(fullPath string, cnf *config.Configuration) *Fi
 			fd.Size = stat.Size()
 			fd.ModTime = stat.ModTime()
 			ft.setRecentFile()
-		}
-		if strings.HasSuffix(relPath, FileExtensionSha256) {
-			data, err2 := os.ReadFile(relPath)
+
+			data, err2 := os.ReadFile(relPath + FileExtensionSha256)
 			if err2 == nil {
 				ft.Sha256 = strings.Split(string(data), " ")[0]
+				fd.Sha256 = ft.Sha256
 			}
-			fd = nil
 		}
 		return fd
 	}

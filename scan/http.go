@@ -11,6 +11,7 @@ import (
 	"github.com/opensourceways/mirrorbits/utils"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -74,9 +75,14 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-c
 			return 0, errors.New("mirror file http url: " + uri.String() + "/" + fileUrl + " request failed")
 		}
 
+		sizeStr := resp1.Header.Get("Content-Length")
+		size, _ := strconv.ParseInt(sizeStr, 10, 64)
 		fd.Path = fileUrl
-		fd.Size = fl.Size
-		fd.ModTime = fl.ModTime
+		fd.Size = size
+
+		modTimeStr := resp1.Header.Get("Last-Modified")
+		modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", modTimeStr)
+		fd.ModTime = modTime
 		r.scan.ScannerAddFile(fd)
 	}
 
