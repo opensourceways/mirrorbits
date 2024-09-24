@@ -6,6 +6,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"github.com/opensourceways/mirrorbits/filesystem"
 	"math/rand"
 	"net"
 	"net/http"
@@ -14,20 +15,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
+	"github.com/op/go-logging"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/scan"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 )
 
 var (
 	healthCheckThreads  = 10
-	userAgent           = "Mirrorbits/" + core.VERSION + " PING CHECK"
+	userAgent           = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 	clientTimeout       = time.Duration(20 * time.Second)
 	clientDeadline      = time.Duration(40 * time.Second)
 	errRedirect         = errors.New("Redirect not allowed")
@@ -61,12 +62,12 @@ type mirror struct {
 	lastCheck time.Time
 }
 
-func (m *mirror) NeedHealthCheck() bool {
-	return time.Since(m.lastCheck) > time.Duration(GetConfig().CheckInterval)*time.Minute
+func (m *mirror) NeedHealthCheck(checkInterval int) bool {
+	return time.Since(m.lastCheck) > time.Duration(checkInterval)*time.Minute
 }
 
-func (m *mirror) NeedSync() bool {
-	return time.Since(m.LastSync.Time) > time.Duration(GetConfig().ScanInterval)*time.Minute
+func (m *mirror) NeedSync(scanInterval int) bool {
+	return time.Since(m.LastSync.Time) > time.Duration(scanInterval)*time.Minute
 }
 
 func (m *mirror) IsScanning() bool {
@@ -165,6 +166,8 @@ func (m *monitor) MonitorLoop() {
 		break
 	}
 
+	cnf := GetConfig()
+	filesystem.InitPathFilter(cnf.RepositoryFilter)
 	// Scan the local repository
 	m.retry(func(i uint) error {
 		err := m.scanRepository()
@@ -208,9 +211,8 @@ func (m *monitor) MonitorLoop() {
 		m.wg.Add(1)
 		go m.healthCheckLoop()
 	}
-
 	// Start the mirror sync routines
-	for i := 0; i < GetConfig().ConcurrentSync; i++ {
+	for i := 0; i < cnf.ConcurrentSync; i++ {
 		m.wg.Add(1)
 		go m.syncLoop()
 	}
@@ -218,7 +220,7 @@ func (m *monitor) MonitorLoop() {
 	// Setup recurrent tasks
 	var repositoryScanTicker <-chan time.Time
 	repositoryScanInterval := -1
-	mirrorCheckTicker := time.NewTicker(1 * time.Second)
+	mirrorCheckTicker := time.NewTicker(30 * time.Second)
 
 	// Disable the mirror check while stopping to avoid spurious events
 	go func() {
@@ -244,8 +246,8 @@ func (m *monitor) MonitorLoop() {
 				m.syncMirrorList(id)
 			}
 		case <-m.configNotifier:
-			if repositoryScanInterval != GetConfig().RepositoryScanInterval {
-				repositoryScanInterval = GetConfig().RepositoryScanInterval
+			if repositoryScanInterval != cnf.RepositoryScanInterval {
+				repositoryScanInterval = cnf.RepositoryScanInterval
 
 				if repositoryScanInterval == 0 {
 					repositoryScanTicker = nil
@@ -265,14 +267,14 @@ func (m *monitor) MonitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if v.NeedHealthCheck() && !v.IsChecking() && m.cluster.IsHandled(id) {
+				if v.NeedHealthCheck(cnf.CheckInterval) && !v.IsChecking() && m.cluster.IsHandled(id) {
 					select {
 					case m.healthCheckChan <- id:
 						m.mirrors[id].checking = true
 					default:
 					}
 				}
-				if v.NeedSync() && !v.IsScanning() && m.cluster.IsHandled(id) {
+				if v.NeedSync(cnf.ScanInterval) && !v.IsScanning() && m.cluster.IsHandled(id) {
 					select {
 					case m.syncChan <- id:
 						m.mirrors[id].scanning = true
@@ -424,7 +426,7 @@ func (m *monitor) syncLoop() {
 			}
 			conn.Close()
 
-			log.Debugf("Scanning %s", mir.Name)
+			log.Infof("Scanning %s", mir.Name)
 
 			// Start fetching the latest trace
 			go func() {
@@ -443,16 +445,9 @@ func (m *monitor) syncLoop() {
 
 			err = scan.ErrNoSyncMethod
 
-			// First try to scan with rsync
-			if mir.RsyncURL != "" {
-				_, err = scan.Scan(core.RSYNC, m.redis, m.cache, mir.RsyncURL, id, m.stop)
+			if mir.HttpURL != "" {
+				_, err = scan.Scan(core.HTTP, m.redis, m.cache, mir.HttpURL, id, m.stop)
 			}
-			// If it failed or rsync wasn't supported
-			// fallback to FTP
-			if err != nil && err != scan.ErrScanAborted && mir.FtpURL != "" {
-				_, err = scan.Scan(core.FTP, m.redis, m.cache, mir.FtpURL, id, m.stop)
-			}
-
 			if err == scan.ErrScanInProgress {
 				log.Warningf("%-30.30s Scan already in progress", mir.Name)
 				goto end
@@ -489,7 +484,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 	}
 
 	// Prepare the HTTP request
-	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
+	req, err := http.NewRequest("HEAD", mirror.HttpURL+"/"+file, nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 
@@ -626,6 +621,7 @@ func (m *monitor) scanRepository() error {
 // the process to be stopped.
 func (m *monitor) retry(fn func(iteration uint) error, delay time.Duration) {
 	var i uint
+	timer := time.NewTimer(delay)
 	for {
 		err := fn(i)
 		i++
@@ -635,7 +631,11 @@ func (m *monitor) retry(fn func(iteration uint) error, delay time.Duration) {
 		select {
 		case <-m.stop:
 			return
-		case <-time.After(delay):
+		case <-timer.C:
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(delay)
 		}
 	}
 }

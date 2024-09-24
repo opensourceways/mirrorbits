@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/op/go-logging"
 	"github.com/opensourceways/mirrorbits/cli"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
@@ -22,7 +23,6 @@ import (
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/process"
 	"github.com/opensourceways/mirrorbits/rpc"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 )
 

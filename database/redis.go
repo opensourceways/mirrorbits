@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
-	"github.com/gomodule/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 )
 
@@ -164,11 +164,12 @@ func (r *Redis) checkVersion(conn redis.Conn) error {
 
 // Connect initiates a new connection to the redis server
 func (r *Redis) Connect() (redis.Conn, error) {
-	sentinels := GetConfig().RedisSentinels
+	cnf := GetConfig()
+	sentinels := cnf.RedisSentinels
 
 	if len(sentinels) > 0 {
 
-		if len(GetConfig().RedisSentinelMasterName) == 0 {
+		if len(cnf.RedisSentinelMasterName) == 0 {
 			r.logError("Config: RedisSentinelMasterName cannot be empty!")
 			goto single
 		}
@@ -195,9 +196,9 @@ func (r *Redis) Connect() (redis.Conn, error) {
 				goto closeSentinel
 			}
 
-			master, err = redis.Strings(c.Do("SENTINEL", "get-master-addr-by-name", GetConfig().RedisSentinelMasterName))
+			master, err = redis.Strings(c.Do("SENTINEL", "get-master-addr-by-name", cnf.RedisSentinelMasterName))
 			if err == redis.ErrNil {
-				r.logError("Sentinel: %s doesn't know the master-name %s", s.Host, GetConfig().RedisSentinelMasterName)
+				r.logError("Sentinel: %s doesn't know the master-name %s", s.Host, cnf.RedisSentinelMasterName)
 				goto closeSentinel
 			} else if err != nil {
 				r.logError("Sentinel: %s", err.Error())
@@ -247,7 +248,7 @@ func (r *Redis) Connect() (redis.Conn, error) {
 
 single:
 
-	if len(GetConfig().RedisAddress) == 0 {
+	if len(cnf.RedisAddress) == 0 {
 		if len(sentinels) == 0 {
 			log.Error("No redis master available")
 		}
@@ -263,7 +264,7 @@ single:
 		log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
 	}
 
-	c, err := r.connectTo(GetConfig().RedisAddress)
+	c, err := r.connectTo(cnf.RedisAddress)
 	//c, err := r.connectTo(GetRedisAddress())
 	if err != nil {
 		return nil, err
@@ -283,10 +284,10 @@ single:
 	}
 	if role != "master" {
 		//r.logError("Redis master: %s is not a master but a %s", GetRedisAddress(), role)
-		r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
+		r.logError("Redis master: %s is not a master but a %s", cnf.RedisAddress, role)
 		return nil, ErrUnreachable
 	}
-	r.printConnectedMaster(GetConfig().RedisAddress)
+	r.printConnectedMaster(cnf.RedisAddress)
 	//r.printConnectedMaster(GetRedisAddress())
 	return c, err
 
