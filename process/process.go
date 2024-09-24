@@ -128,7 +128,7 @@ func Recover() (l net.Listener, ppid int, err error) {
 	}
 
 	// Note: running the project in windows, modify the code 'int(fd) -> syscall.Handle(fd)'
-	if err = syscall.Close(syscall.Handle(fd)); err != nil {
+	if err = syscall.Close(int(fd)); err != nil {
 		return
 	}
 	_, err = fmt.Sscan(os.Getenv("OLD_PPID"), &ppid)
