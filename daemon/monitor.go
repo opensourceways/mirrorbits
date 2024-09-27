@@ -158,7 +158,7 @@ func (m *monitor) MonitorLoop() {
 			return err
 		}
 		return nil
-	}, 1*time.Second)
+	}, 10*time.Second)
 
 	// Synchronize the list of all known mirrors
 	m.retry(func(i uint) error {
