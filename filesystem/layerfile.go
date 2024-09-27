@@ -4,8 +4,8 @@ package filesystem
 
 import (
 	"github.com/opensourceways/mirrorbits/config"
+	"github.com/opensourceways/mirrorbits/utils"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,11 +14,18 @@ import (
 )
 
 const (
-	Sep                        = string(os.PathSeparator)
-	FileExtensionSha256        = ".sha256sum"
-	EstimateFileNum            = 10000
-	RepoVersionNum             = 64
+	// path separator
+	Sep = "/"
+	// file extension named sha256sum
+	FileExtensionSha256 = ".sha256sum"
+	// estimate indexed file sum
+	EstimateFileNum = 10000
+	// openEuler version initial total
+	RepoVersionNum = 64
+	// openEuler version directory prefix value
 	RepoVersionDirectoryPrefix = "openEuler-"
+	// Scenario is ISO or edge_img, standard iso file extension
+	StandardISOFileExtension = ".iso"
 )
 
 var (
@@ -30,7 +37,7 @@ var (
 	pathFilter      []string
 	repoVersionList []DisplayRepoVersion
 	repoVersionMap  = make(map[string][]DisplayFileList, RepoVersionNum)
-	selectorList    []LayerFile
+	selectorList    []*LayerFile
 
 	lock            sync.RWMutex
 	fileTreeReplica = &FileStore{
@@ -40,6 +47,7 @@ var (
 	}
 )
 
+// website display file information structure
 type DisplayFile struct {
 	Name    string
 	Path    string
@@ -48,12 +56,14 @@ type DisplayFile struct {
 	Type    string
 }
 
+// website display file menu structure
 type DisplayFileList struct {
 	Scenario string
 	Arch     string
 	Tree     []DisplayFile
 }
 
+// website display repo version menu structure
 type DisplayRepoVersion struct {
 	Version  string
 	Scenario []string
@@ -61,12 +71,17 @@ type DisplayRepoVersion struct {
 	LTS      bool
 }
 
+// store the files structure
+// Root contains tree-structured file information
+// Mapping is a map contains per file information
+// SelectorMap is a map contains some files that supports to use for mirror check
 type FileStore struct {
 	Mapping     map[string]*LayerFile
 	SelectorMap map[string]*LayerFile
 	Root        LayerFile
 }
 
+// file information structure in project
 type FileData struct {
 	Path    string
 	Sha1    string
@@ -76,6 +91,7 @@ type FileData struct {
 	ModTime time.Time
 }
 
+// tree-structured file information structure in project
 type LayerFile struct {
 	Dir     string
 	Name    string
@@ -86,6 +102,7 @@ type LayerFile struct {
 	Sub     []*LayerFile
 }
 
+// update the tree-structured files
 func UpdateFileTree(filter config.DirFilter) {
 	lock.Lock()
 	defer lock.Unlock()
@@ -99,13 +116,14 @@ func UpdateFileTree(filter config.DirFilter) {
 	repoVersionList = repoVersionList[0:0]
 	selectorList = selectorList[0:0]
 	collectRepoVersionList(filter)
-
 }
 
-func BuildFileTree(path string, cnf *config.Configuration) *FileData {
-	return fileTreeReplica.Root.layeringPath(path, cnf)
+// a file append to the tree-structured files, and return the file information
+func BuildFileTree(path string, size, modTime []byte, cnf *config.Configuration) *FileData {
+	return fileTreeReplica.Root.layeringPath(path, size, modTime, cnf)
 }
 
+// get the website displayed repo version list
 func GetRepoVersionList() []DisplayRepoVersion {
 	var ans []DisplayRepoVersion
 	lock.RLock()
@@ -114,15 +132,17 @@ func GetRepoVersionList() []DisplayRepoVersion {
 	return ans
 }
 
-func GetSelectorList() []LayerFile {
-	var ans []LayerFile
+// get a file list that supports to use for mirror check
+func GetSelectorList() []*LayerFile {
+	var ans []*LayerFile
 	lock.RLock()
 	ans = selectorList
 	lock.RUnlock()
 	return ans
 }
 
-func GetRepoFileList(version string, filter config.DirFilter) []DisplayFileList {
+// get a repo version file list to display in website
+func GetRepoFileList(version string, cnf *config.Configuration) []DisplayFileList {
 	lock.RLock()
 	defer lock.RUnlock()
 	if v, ok := repoVersionMap[version]; ok {
@@ -133,7 +153,15 @@ func GetRepoFileList(version string, filter config.DirFilter) []DisplayFileList 
 		repoVersionMap[version] = p.flattening()
 	}
 
-	for _, v := range filter.ParticularFile {
+	// x86-64 convert to x86_64
+	for i, v := range repoVersionMap[version] {
+		if v.Arch == "x86-64" {
+			repoVersionMap[version][i].Arch = "x86_64"
+		}
+	}
+
+	// handler some particular file that information loading by the config file
+	for _, v := range cnf.RepositoryFilter.ParticularFile {
 		if v.VersionName == version {
 			idx := -1
 			for i := range repoVersionMap[version] {
@@ -147,11 +175,11 @@ func GetRepoFileList(version string, filter config.DirFilter) []DisplayFileList 
 					Scenario: v.ScenarioName,
 					Arch:     v.ArchName,
 				}
-				appendParticularFile(ans, v)
+				ans.appendParticularFile(v, cnf.Repository, cnf.Fallbacks[0].URL)
 				repoVersionMap[version] = append(repoVersionMap[version], *ans)
 			} else {
 				ans := &repoVersionMap[version][idx]
-				appendParticularFile(ans, v)
+				ans.appendParticularFile(v, cnf.Repository, cnf.Fallbacks[0].URL)
 				repoVersionMap[version][idx] = *ans
 			}
 		}
@@ -159,6 +187,7 @@ func GetRepoFileList(version string, filter config.DirFilter) []DisplayFileList 
 	return repoVersionMap[version]
 }
 
+// build a rule list that use for filter the repo source files
 func InitPathFilter(filter config.DirFilter) {
 	if len(filter.SecondDir) == 0 || len(filter.ThirdDir) == 0 {
 		return
@@ -177,6 +206,7 @@ func InitPathFilter(filter config.DirFilter) {
 	}
 }
 
+// filtering by the file path
 func Filter(path string) bool {
 	if !strings.HasPrefix(path, RepoVersionDirectoryPrefix) {
 		return false
@@ -186,26 +216,38 @@ func Filter(path string) bool {
 	}
 	for _, v := range pathFilter {
 		if strings.Contains(path, v) {
+			arr := strings.Split(path, Sep)
+			if len(arr) > 1 && (arr[1] == "ISO" || arr[1] == "edge_img") && !strings.HasSuffix(path, StandardISOFileExtension) {
+				return false
+			}
 			return true
 		}
 	}
 	return false
 }
 
-func appendParticularFile(d *DisplayFileList, p config.ParticularFileMapping) {
-	for _, v := range p.SourcePath {
+// add the configured particular file to the website display file menu
+func (d *DisplayFileList) appendParticularFile(p config.ParticularFileMapping, repoPath, fallbackPath string) {
+	for i, v := range p.SourcePath {
 		path := v
 		pathArr := strings.Split(path, Sep)
 		viewSize := ""
 		size, ok := fileTree.Mapping[path]
 		if ok {
-			viewSize = size.viewFileSize()
+			viewSize = utils.ReadableSize(size.Size)
 		}
 		shaCode := ""
-		sha, ok := fileTree.Mapping[path+FileExtensionSha256]
-		if ok {
-			shaCode = strings.Split(sha.Sha256, " ")[0]
+		if i < len(p.SHA256List) {
+			if p.SHA256List[i] != "" {
+				shaCode = p.SHA256List[i]
+			} else {
+				sha, err := os.ReadFile(repoPath + Sep + path + FileExtensionSha256)
+				if err == nil {
+					shaCode = strings.Split(string(sha), " ")[0]
+				}
+			}
 		}
+
 		d.Tree = append(d.Tree, DisplayFile{
 			Name:    pathArr[len(pathArr)-1],
 			Path:    path,
@@ -216,6 +258,7 @@ func appendParticularFile(d *DisplayFileList, p config.ParticularFileMapping) {
 	}
 }
 
+// per repo version, do record the recent file information
 func (ft *LayerFile) setRecentFile() {
 	version := strings.Split(ft.Dir, Sep)[0]
 	if v, ok := fileTreeReplica.SelectorMap[version]; ok {
@@ -227,35 +270,52 @@ func (ft *LayerFile) setRecentFile() {
 	}
 }
 
-func (ft *LayerFile) setFileData(fullPath string, cnf *config.Configuration) *FileData {
-
-	relPath, err := filepath.Abs(cnf.Repository + Sep + fullPath)
-	if err != nil {
-		return nil
-	} else {
-
-		fd := new(FileData)
-		stat, err1 := os.Stat(relPath)
-		if err1 == nil {
-			ft.Size = stat.Size()
-			ft.Type = "file"
-			ft.ModTime = stat.ModTime()
-			fd.Path = strings.ReplaceAll(fullPath, Sep, "/")
-			fd.Size = stat.Size()
-			fd.ModTime = stat.ModTime()
-			ft.setRecentFile()
-
-			data, err2 := os.ReadFile(relPath + FileExtensionSha256)
-			if err2 == nil {
-				ft.Sha256 = strings.Split(string(data), " ")[0]
-				fd.Sha256 = ft.Sha256
-			}
+// file size: string [rrwxrr-x  23,545,123] => int64 [23545123]
+func covertFileSize(arr []byte) int64 {
+	n := len(arr)
+	size := make([]byte, n, n)
+	idx := n - 1
+	for i := idx; i >= 0; i-- {
+		if arr[i] == ' ' {
+			idx++
+			break
 		}
-		return fd
+		if arr[i] != ',' {
+			size[idx] = arr[i]
+			idx--
+		}
 	}
+	sizeInt, _ := strconv.ParseInt(string(size[idx:]), 10, 64)
+	return sizeInt
 }
 
-func (ft *LayerFile) layeringPath(path string, cnf *config.Configuration) *FileData {
+// set the file information
+func (ft *LayerFile) setFileData(path string, size, modTime []byte, cnf *config.Configuration) *FileData {
+
+	fd := new(FileData)
+	ft.Type = "file"
+	fd.Path = path
+	ft.Size = covertFileSize(size)
+	fd.Size = ft.Size
+	modTime[4] = '-'
+	modTime[7] = '-'
+	lastModTime, err := time.Parse(time.DateTime, string(modTime))
+	if err == nil {
+		ft.ModTime = lastModTime
+		fd.ModTime = lastModTime
+		ft.setRecentFile()
+	}
+	sha256FilePath := strings.ReplaceAll(utils.ConcatURL(cnf.Repository, path), Sep, string(os.PathSeparator)) + FileExtensionSha256
+	data, err1 := os.ReadFile(sha256FilePath)
+	if err1 == nil {
+		ft.Sha256 = strings.Split(string(data), " ")[0]
+		fd.Sha256 = ft.Sha256
+	}
+	return fd
+}
+
+// a file append to the tree-structured files, and return the file information
+func (ft *LayerFile) layeringPath(path string, size, modTime []byte, cnf *config.Configuration) *FileData {
 	fm := fileTreeReplica.Mapping
 	var fd *FileData
 	fileLayer := strings.Split(path, Sep)
@@ -276,7 +336,7 @@ func (ft *LayerFile) layeringPath(path string, cnf *config.Configuration) *FileD
 			}
 			currPath := dir + Sep + node.Name
 			if currPath == path {
-				fd = node.setFileData(currPath, cnf)
+				fd = node.setFileData(currPath, size, modTime, cnf)
 			}
 			if _, ok1 := fm[currPath]; !ok1 {
 				fm[currPath] = node
@@ -287,6 +347,7 @@ func (ft *LayerFile) layeringPath(path string, cnf *config.Configuration) *FileD
 	return fd
 }
 
+// tree-structured files structure covert into flat files list to display on the website page
 func (ft *LayerFile) flattening() []DisplayFileList {
 	if ft == nil || len(ft.Sub) == 0 {
 		return nil
@@ -304,6 +365,7 @@ func (ft *LayerFile) flattening() []DisplayFileList {
 	return ans
 }
 
+// collect every file from a tree-structured files node
 func (ft *LayerFile) collectFileInfo(ans []DisplayFileList, scenario string) []DisplayFileList {
 	if len(ft.Sub) == 0 {
 		return ans
@@ -313,11 +375,12 @@ func (ft *LayerFile) collectFileInfo(ans []DisplayFileList, scenario string) []D
 	arr := strings.Split(ft.Dir, Sep)
 	if len(arr) == 2 && arr[1] == "embedded_img" && len(ft.Sub) == 1 {
 		for _, p := range ft.Sub[0].Sub {
-			t = p.appendFile(!strings.HasSuffix(p.Name, FileExtensionSha256), t)
+			t = p.appendFile(len(p.Sub) == 0, t)
+			t = p.appendDir(len(p.Sub) != 0, t)
 		}
 	} else {
 		for _, p := range ft.Sub {
-			t = p.appendFile(len(p.Sub) == 0 && !strings.HasSuffix(p.Name, FileExtensionSha256), t)
+			t = p.appendFile(len(p.Sub) == 0, t)
 			t = p.appendDir(len(p.Sub) != 0, t)
 		}
 	}
@@ -328,34 +391,16 @@ func (ft *LayerFile) collectFileInfo(ans []DisplayFileList, scenario string) []D
 	})
 }
 
-func (ft *LayerFile) viewFileSize() (ans string) {
-	if ft.Size <= 1024 {
-		ans = strconv.FormatInt(ft.Size, 10) + " B"
-	} else if ft.Size <= 1024*1024 {
-		ans = strconv.FormatInt(ft.Size>>10, 10) + "." + strconv.FormatInt((ft.Size>>9)%10, 10) + " KiB"
-	} else if ft.Size <= 1024*1024*1024 {
-		ans = strconv.FormatInt(ft.Size>>20, 10) + "." + strconv.FormatInt((ft.Size>>19)%10, 10) + " MiB"
-	} else {
-		ans = strconv.FormatInt(ft.Size>>30, 10) + "." + strconv.FormatInt((ft.Size>>29)%10, 10) + " GiB"
-	}
-	return
-}
-
 func (ft *LayerFile) appendFile(flag bool, t []DisplayFile) []DisplayFile {
 	if !flag {
 		return t
 	}
 	path := ft.Dir + Sep + ft.Name
-	shaCode := ""
-	sha, ok := fileTree.Mapping[path+FileExtensionSha256]
-	if ok {
-		shaCode = strings.Split(sha.Sha256, " ")[0]
-	}
 	return append(t, DisplayFile{
 		Name:    ft.Name,
 		Path:    path,
-		Size:    ft.viewFileSize(),
-		ShaCode: shaCode,
+		Size:    utils.ReadableSize(ft.Size),
+		ShaCode: ft.Sha256,
 		Type:    "file",
 	})
 }
@@ -370,6 +415,27 @@ func (ft *LayerFile) appendDir(flag bool, t []DisplayFile) []DisplayFile {
 		Path: ft.Dir + Sep + ft.Name,
 		Type: "dir",
 	})
+}
+
+func (ft *LayerFile) dfsEveryFile() {
+	if ft == nil {
+		return
+	}
+
+	subLen := len(ft.Sub)
+	if subLen == 0 {
+		selectorList = append(selectorList, ft)
+		return
+	}
+
+	if subLen == 1 {
+		ft.Sub[0].dfsEveryFile()
+		return
+	}
+
+	for _, p := range ft.Sub {
+		p.dfsEveryFile()
+	}
 }
 
 func (ft *LayerFile) dfsDictionaryOrderLastFile() *LayerFile {
@@ -402,32 +468,71 @@ func collectRepoVersionList(filter config.DirFilter) {
 	if len(fileTree.Root.Sub) == 0 || len(filter.SecondDir) == 0 || len(filter.ThirdDir) == 0 {
 		return
 	}
+
 	for _, v := range fileTree.Root.Sub {
 		scenario := checkRepoScenario(v.Name, filter.SecondDir)
 		arch := checkRepoArch(v.Name, scenario, filter.ThirdDir)
 		if len(arch) > 0 {
 			sort.Strings(scenario)
 			sort.Strings(arch)
+			var editArch []string
+			// x86-64 merge to x86_64
+			editArch = append(editArch, arch...)
+			x, y := -1, -1
+			for i, s := range editArch {
+				if s == "x86_64" {
+					x = i
+				}
+				if s == "x86-64" {
+					y = i
+				}
+			}
+			if x == -1 && y != -1 {
+				editArch[y] = "x86_64"
+			}
+			if x != -1 && y != -1 {
+				editArch[y] = editArch[0]
+				editArch = editArch[1:]
+			}
+			sort.Strings(editArch)
+
+			// collect all repo version menu list
 			repoVersionList = append(repoVersionList, DisplayRepoVersion{
 				Version:  v.Name,
 				Scenario: scenario,
-				Arch:     arch,
+				Arch:     editArch,
 				LTS:      strings.Contains(v.Name, "LTS"),
 			})
 
-			var selectDir []*LayerFile
+			// select some files to do check mirror
 			p := fileTree.SelectorMap[v.Name]
-			if p.ModTime.After(time.Now().AddDate(-1, 0, 0)) {
-				selectDir = selectEveryScenarioDir(v.Name, scenario, arch)
-				selectorList = append(selectorList, *p)
-			} else {
-				selectDir = selectDictionaryOrderLastDir(v.Name, scenario, arch)
+			if p == nil {
+				continue
 			}
-			for _, p1 := range selectDir {
-				if selectFile := p1.dfsDictionaryOrderLastFile(); selectFile != nil {
-
-					selectorList = append(selectorList, *p)
+			selectorList = append(selectorList, p)
+			selectDir := selectEveryScenarioArchDir(v.Name, scenario, arch)
+			if p.ModTime.After(time.Now().AddDate(0, -7, 0)) {
+				// the long-term maintenance repo version, select every file to check exist or not in the mirror website
+				for _, p1 := range selectDir {
+					p1.dfsEveryFile()
 				}
+			} else {
+				// the stopped maintenance repo version, select some file to check exist or not in the mirror website
+				for _, p2 := range selectDir {
+					if selectFile := p2.dfsDictionaryOrderLastFile(); selectFile != nil {
+						selectorList = append(selectorList, selectFile)
+					}
+				}
+			}
+		}
+	}
+
+	for i, v := range repoVersionList {
+		// additional file information
+		for _, v1 := range filter.ParticularFile {
+			if v1.VersionName == v.Version {
+				repoVersionList[i].Scenario = appendParticularScenarioArch(repoVersionList[i].Scenario, v1.ScenarioName)
+				repoVersionList[i].Arch = appendParticularScenarioArch(repoVersionList[i].Arch, v1.ArchName)
 			}
 		}
 	}
@@ -436,23 +541,25 @@ func collectRepoVersionList(filter config.DirFilter) {
 	})
 }
 
-func selectDictionaryOrderLastDir(version string, scenario, arch []string) []*LayerFile {
-	for i := len(scenario) - 1; i >= 0; i-- {
-		for j := len(arch) - 1; j >= 0; j-- {
-			if p, ok := fileTree.Mapping[version+Sep+scenario[i]+Sep+arch[j]]; ok {
-				return []*LayerFile{p}
-			}
+func appendParticularScenarioArch(list []string, value string) []string {
+	flag := true
+	for _, v := range list {
+		if v == value {
+			flag = false
+			break
 		}
 	}
-	return nil
+	if flag {
+		list = append(list, value)
+	}
+	return list
 }
 
-func selectEveryScenarioDir(version string, scenario, arch []string) (ans []*LayerFile) {
+func selectEveryScenarioArchDir(version string, scenario, arch []string) (ans []*LayerFile) {
 	for _, v := range scenario {
 		for j := len(arch) - 1; j >= 0; j-- {
 			if p, ok := fileTree.Mapping[version+Sep+v+Sep+arch[j]]; ok {
 				ans = append(ans, p)
-				break
 			}
 		}
 	}

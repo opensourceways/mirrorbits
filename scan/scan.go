@@ -4,12 +4,11 @@
 package scan
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -119,7 +118,7 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	var precision core.Precision
 	t1 := time.Now()
-	precision, err = scanner.Scan(url, name, conn, stop)
+	precision, filePath, err := scanner.Scan(url, name, conn, stop)
 	log.Infof("[%s] scan files cost time = %4.8f s \n", name, time.Since(t1).Seconds())
 	if err != nil {
 		// Discard MULTI
@@ -127,6 +126,9 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 		// Remove the temporary key
 		conn.Do("DEL", s.filesTmpKey)
+
+		log.Warningf("[%s] Removing %s from mirror", name, filePath)
+		conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", filePath), id)
 
 		log.Errorf("[%s] %s", name, err.Error())
 		return nil, err
@@ -371,7 +373,7 @@ func (s *sourcescanner) walkSource(conn redis.Conn, d *filesystem.FileData) *fil
 	}
 
 	// Get the previous file properties
-	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.Path), "size", "modTime", "sha1", "sha256", "md5"))
+	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.Path), "size", "modTime", "sha256"))
 	if err != nil && err != redis.ErrNil {
 		log.Warningf("%s: get failed from redis: %s", d.Path, err.Error())
 		return nil
@@ -381,8 +383,8 @@ func (s *sourcescanner) walkSource(conn redis.Conn, d *filesystem.FileData) *fil
 	}
 
 	size, _ := strconv.ParseInt(properties[0], 10, 64)
-	modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", properties[1])
-	sha256 := properties[3]
+	modTime, _ := time.Parse(time.RFC1123, properties[1])
+	sha256 := properties[2]
 
 	if size != d.Size || !modTime.Equal(d.ModTime) || d.Sha256 != sha256 {
 		log.Infof("[Old] %s: SIZE = %s, MODTIME = %s, SHA256 %s", d.Path, properties[0], modTime.String(), d.Sha256)
@@ -402,37 +404,59 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		return conn.Err()
 	}
 
-	sourceFiles := make([]*filesystem.FileData, 0, 1000)
+	sourceFiles := make([]*filesystem.FileData, 0, 1024)
 
 	//TODO lock atomically inside redis to avoid two simultaneous scan
 	cnf := GetConfig()
-	if _, err := os.Stat(cnf.Repository); os.IsNotExist(err) {
+	if _, err = os.Stat(cnf.Repository); os.IsNotExist(err) {
 		return fmt.Errorf("%s: No such file or directory", cnf.Repository)
 	}
+	repoFileText := cnf.Repository + ".txt"
+	if _, err = os.Stat(repoFileText); err != nil {
+		return fmt.Errorf("%s: No such file or directory", repoFileText)
+	}
 
+	// open the file
+	file, err := os.Open(repoFileText)
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	// handle errors while opening
+	if err != nil {
+		return fmt.Errorf("cannot open the file: %s", repoFileText)
+	}
+	fileScanner := bufio.NewScanner(file)
+	x, y, z := 0, 0, 0
+	if fileScanner.Scan() {
+		line := fileScanner.Bytes()
+		z = len(line) // 47
+		// drwxrwxrwx          4,096 2024/08/08 11:01:29 .
+		//                           x                   y
+		y = z - 1
+		x = z - 21
+	}
 	log.Info("[source] Scanning the filesystem...")
-	prefixLen := len(cnf.Repository + filesystem.Sep)
-	err = filepath.Walk(cnf.Repository, func(path string, f os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if f != nil && !f.IsDir() && !strings.HasPrefix(f.Name(), ".") && filesystem.Filter(path[prefixLen:]) {
-			fd := filesystem.BuildFileTree(path[prefixLen:], cnf)
+	// read line by line
+	for fileScanner.Scan() {
+		line := fileScanner.Bytes()
+		path := string(line[y:])
+		if filesystem.Filter(path) && len(line) >= z {
+			fd := filesystem.BuildFileTree(path, line[:x-1], line[x:y-1], cnf)
 			fd = s.walkSource(conn, fd)
 			if fd != nil {
 				sourceFiles = append(sourceFiles, fd)
 			}
 		}
-		return nil
-	})
+	}
+	if err = fileScanner.Err(); err != nil {
+		log.Errorf("Error while reading file: %s", err)
+	}
 
 	filesystem.UpdateFileTree(cnf.RepositoryFilter)
 
 	if utils.IsStopped(stop) {
 		return ErrScanAborted
-	}
-	if err != nil {
-		return err
 	}
 	log.Info("[source] Indexing the files...")
 
@@ -481,9 +505,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.Path),
 			"size", e.Size,
 			"modTime", e.ModTime,
-			"sha1", e.Sha1,
-			"sha256", e.Sha256,
-			"md5", e.Md5)
+			"sha256", e.Sha256)
 
 		// Publish update
 		database.SendPublish(conn, database.FILE_UPDATE, e.Path)

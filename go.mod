@@ -2,6 +2,7 @@ module github.com/opensourceways/mirrorbits
 
 require (
 	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/go-resty/resty/v2 v2.11.0
 	github.com/golang/protobuf v1.5.4
 	github.com/gomodule/redigo v1.8.9
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7

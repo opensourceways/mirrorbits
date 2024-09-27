@@ -5,6 +5,7 @@ package scan
 import (
 	"errors"
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/filesystem"
@@ -16,75 +17,72 @@ import (
 	"time"
 )
 
-var client = &http.Client{
-	Transport: &http.Transport{
-		MaxIdleConns:        200,
-		MaxIdleConnsPerHost: 100,
-		MaxConnsPerHost:     100,
-		IdleConnTimeout:     300 * time.Second,
-	},
-	Timeout: 30 * time.Second,
-}
+var mirrorCheckClient = resty.New().RemoveProxy()
 
-// HttpScanner is the implementation of an rsync scanner
+// HttpScanner is the implementation of an http scanner
 type HttpScanner struct {
 	scan *scan
 }
 
-// Scan starts an rsync scan of the given mirror
-func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error) {
+// Scan starts an http head scan of the given mirror
+func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, string, error) {
+
+	fileList := filesystem.GetSelectorList()
+	recentFile := fileList[0]
+	filePath := recentFile.Dir + filesystem.Sep + recentFile.Name
 
 	if !strings.HasPrefix(httpUrl, "https://") {
-		return 0, fmt.Errorf("%s does not start with https://", httpUrl)
+		return 0, filePath, fmt.Errorf("%s does not start with https://", httpUrl)
 	}
 
 	if utils.IsStopped(stop) {
-		return 0, ErrScanAborted
+		return 0, filePath, ErrScanAborted
 	}
 
 	uri, err := url.Parse(httpUrl)
 	if err != nil {
-		return 0, err
+		return 0, filePath, err
 	}
-
-	req, err := http.NewRequest("HEAD", uri.String(), nil)
+	client := mirrorCheckClient.SetHeader(userAgentName, userAgent)
+	head, err := client.R().Head(uri.String())
 	if err != nil {
-		return 0, err
+		return 0, filePath, err
 	}
-	req.Header.Set("User-Agent", userAgent)
-
-	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, filePath, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return 0, errors.New("mirror http url: " + resp.Status + " " + httpUrl + " request failed")
+	if head.StatusCode() != http.StatusOK {
+		return 0, filePath, errors.New("mirror http url: " + head.Status() + " " + httpUrl + " request failed")
 	}
 
-	fileList := filesystem.GetSelectorList()
 	fd := filesystem.FileData{}
-	for _, fl := range fileList {
-		fileUrl := strings.ReplaceAll(fl.Dir, filesystem.Sep, "/") + "/" + fl.Name
-		req1, _ := http.NewRequest("HEAD", uri.String()+"/"+fileUrl, nil)
-		req1.Header.Set("User-Agent", userAgent)
-		resp1, err1 := client.Do(req)
+	for i, fl := range fileList {
+		fileUrl := fl.Dir + filesystem.Sep + fl.Name
+
+	retry:
+		head1, err1 := client.R().Head(utils.ConcatURL(uri.String(), fileUrl))
 		if err1 != nil {
-			return 0, err
+			return 0, filePath, err
 		}
-		if resp1.StatusCode != http.StatusOK {
-			return 0, errors.New("mirror file http url: " + uri.String() + "/" + fileUrl + " request failed")
+		if head1.StatusCode() == http.StatusTooManyRequests {
+			time.Sleep(time.Second)
+			goto retry
+		}
+		if head1.StatusCode() != http.StatusOK {
+			return 0, filePath, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
+				", http url: " + uri.String() + "/" + fileUrl + " request failed")
 		}
 
-		sizeStr := resp1.Header.Get("Content-Length")
+		sizeStr := head1.Header().Get("Content-Length")
 		size, _ := strconv.ParseInt(sizeStr, 10, 64)
 		fd.Path = fileUrl
 		fd.Size = size
 
-		modTimeStr := resp1.Header.Get("Last-Modified")
-		modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", modTimeStr)
+		modTimeStr := head1.Header().Get("Last-Modified")
+		modTime, _ := time.Parse(time.RFC1123, modTimeStr)
 		fd.ModTime = modTime
 		r.scan.ScannerAddFile(fd)
 	}
 
-	return 0, nil
+	return 0, "", nil
 }

@@ -137,7 +137,6 @@ func (h *HTTP) StopChan() <-chan struct{} {
 
 // Reload the configuration
 func (h *HTTP) Reload() {
-	filesystem.InitPathFilter(GetConfig().RepositoryFilter)
 	// Reload the GeoIP database
 	h.geoip.LoadGeoIP()
 
@@ -243,7 +242,7 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 	if len(fileList) == 0 {
 		return nil, nil, nil
 	}
-	allMirrorList, err := cache.GetMirrors(strings.ReplaceAll(fileList[0].Dir, filesystem.Sep, "/")+"/"+fileList[0].Name, clientInfo)
+	allMirrorList, err := cache.GetMirrors(fileList[0].Dir+filesystem.Sep+fileList[0].Name, clientInfo)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -252,7 +251,7 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 		return nil, nil, errors.New("neither of mirrors have requested file(s)")
 	}
 
-	//since all files are found in mirrors, we can use first file for detection
+	// since selected files are found in mirrors, we can use first file for detection
 	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList, cnf)
 	if err != nil {
 		return nil, nil, err
@@ -353,10 +352,15 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 	}
 
+	limit := len(mlist)
+	if limit > 5 {
+		limit = 5
+	}
+
 	results = &mirrors.Results{
 		FileInfo:     fileInfo,
-		FileTree:     filesystem.GetRepoFileList(urlPath[1:], cnf.RepositoryFilter),
-		MirrorList:   mlist,
+		FileTree:     filesystem.GetRepoFileList(urlPath[1:], cnf),
+		MirrorList:   mlist[:limit],
 		ExcludedList: excluded,
 		ClientInfo:   clientInfo,
 		IP:           remoteIP,

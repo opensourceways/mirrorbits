@@ -4,8 +4,9 @@
 package daemon
 
 import (
-	"context"
+	innerErrors "errors"
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"github.com/opensourceways/mirrorbits/filesystem"
 	"math/rand"
 	"net"
@@ -29,10 +30,9 @@ import (
 var (
 	healthCheckThreads  = 10
 	userAgent           = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-	clientTimeout       = time.Duration(20 * time.Second)
-	clientDeadline      = time.Duration(40 * time.Second)
 	errRedirect         = errors.New("Redirect not allowed")
 	errMirrorNotScanned = errors.New("Mirror has not yet been scanned")
+	healthyCheckClient  = resty.New().RemoveProxy()
 
 	log = logging.MustGetLogger("main")
 )
@@ -42,8 +42,6 @@ type monitor struct {
 	cache           *mirrors.Cache
 	mirrors         map[int]*mirror
 	mapLock         sync.Mutex
-	httpClient      http.Client
-	httpTransport   http.Transport
 	healthCheckChan chan int
 	syncChan        chan int
 	stop            chan struct{}
@@ -95,24 +93,6 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *monitor {
 
 	rand.Seed(time.Now().UnixNano())
 
-	m.httpTransport = http.Transport{
-		DisableKeepAlives:   true,
-		MaxIdleConnsPerHost: 0,
-		Dial: func(network, addr string) (net.Conn, error) {
-			deadline := time.Now().Add(clientDeadline)
-			c, err := net.DialTimeout(network, addr, clientTimeout)
-			if err != nil {
-				return nil, err
-			}
-			c.SetDeadline(deadline)
-			return c, nil
-		},
-	}
-
-	m.httpClient = http.Client{
-		CheckRedirect: checkRedirect,
-		Transport:     &m.httpTransport,
-	}
 	return m
 }
 
@@ -483,45 +463,16 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		return err
 	}
 
-	// Prepare the HTTP request
-	req, err := http.NewRequest("HEAD", mirror.HttpURL+"/"+file, nil)
-	req.Header.Set("User-Agent", userAgent)
-	req.Close = true
-
-	ctx, cancel := context.WithTimeout(req.Context(), clientDeadline)
-	ctx = context.WithValue(ctx, core.ContextMirrorID, mirror.ID)
-	ctx = context.WithValue(ctx, core.ContextMirrorName, mirror.Name)
-	ctx = context.WithValue(ctx, core.ContextAllowRedirects, mirror.AllowRedirects)
-	req = req.WithContext(ctx)
-	defer cancel()
-
-	go func() {
-		select {
-		case <-m.stop:
-			log.Debugf("Aborting health-check for %s", mirror.HttpURL)
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-
-	var contentLength string
-	var statusCode int
-	elapsed, err := m.httpDo(ctx, req, func(resp *http.Response, err error) error {
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		statusCode = resp.StatusCode
-		contentLength = resp.Header.Get("Content-Length")
-		return nil
-	})
-
 	if utils.IsStopped(m.stop) {
 		return nil
 	}
 
+	// Prepare the HTTP request
+	head, err := healthyCheckClient.R().SetHeader("User-Agent", userAgent).Head(mirror.HttpURL + "/" + file)
 	if err != nil {
-		if opErr, ok := err.(*net.OpError); ok {
+		log.Errorf(format+"Unable to http connect to mirror: %s", mirror.Name, err)
+		var opErr *net.OpError
+		if innerErrors.As(err, &opErr) {
 			log.Debugf("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
 		if strings.Contains(err.Error(), errRedirect.Error()) {
@@ -529,9 +480,12 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		} else {
 			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
 		}
-		log.Errorf(format+"Error: %s (%dms)", mirror.Name, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
+
+	statusCode := head.StatusCode()
+	contentLength := head.Header().Get("Content-Length")
+	head.Header().Get("Last-Modified")
 
 	switch statusCode {
 	case 200:
@@ -541,9 +495,9 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		}
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
-			log.Warningf(format+"File size mismatch! [%s] (%dms)", mirror.Name, file, elapsed/time.Millisecond)
+			log.Warningf(format+"File size mismatch! [%s] (%dms)", mirror.Name, file)
 		} else {
-			log.Noticef(format+"Up! (%dms)", mirror.Name, elapsed/time.Millisecond)
+			log.Noticef(format+"Up!", mirror.Name)
 		}
 	case 404:
 		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
@@ -565,27 +519,6 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		log.Warningf(format+"Down! Status: %d", mirror.Name, statusCode)
 	}
 	return nil
-}
-
-func (m *monitor) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) (time.Duration, error) {
-	var elapsed time.Duration
-	c := make(chan error, 1)
-
-	go func() {
-		start := time.Now()
-		err := f(m.httpClient.Do(req))
-		elapsed = time.Since(start)
-		c <- err
-	}()
-
-	select {
-	case <-ctx.Done():
-		m.httpTransport.CancelRequest(req)
-		<-c // Wait for f to return.
-		return elapsed, ctx.Err()
-	case err := <-c:
-		return elapsed, err
-	}
 }
 
 // Get a random filename known to be served by the given mirror

@@ -5,25 +5,21 @@ package scan
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
+	"github.com/go-resty/resty/v2"
 	"strconv"
 	"time"
 
 	. "github.com/opensourceways/mirrorbits/config"
-	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/utils"
 )
 
 var (
-	userAgent      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-	clientTimeout  = time.Duration(20 * time.Second)
-	clientDeadline = time.Duration(40 * time.Second)
+	userAgentName = "User-Agent"
+	userAgent     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
 	// ErrNoTrace is returned when no trace file is found
 	ErrNoTrace = errors.New("No trace file")
@@ -32,8 +28,7 @@ var (
 // Trace is the internal trace handler
 type Trace struct {
 	redis      *database.Redis
-	transport  http.Transport
-	httpClient http.Client
+	httpClient *resty.Client
 	stop       <-chan struct{}
 }
 
@@ -46,23 +41,7 @@ func NewTraceHandler(redis *database.Redis, stop <-chan struct{}) *Trace {
 		stop:  stop,
 	}
 
-	t.transport = http.Transport{
-		DisableKeepAlives:   true,
-		MaxIdleConnsPerHost: 0,
-		Dial: func(network, addr string) (net.Conn, error) {
-			deadline := time.Now().Add(clientDeadline)
-			c, err := net.DialTimeout(network, addr, clientTimeout)
-			if err != nil {
-				return nil, err
-			}
-			c.SetDeadline(deadline)
-			return c, nil
-		},
-	}
-
-	t.httpClient = http.Client{
-		Transport: &t.transport,
-	}
+	t.httpClient = resty.New().RemoveProxy()
 
 	return t
 }
@@ -78,32 +57,12 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 
 	log.Debugf("Getting latest trace file for %s...", mirror.Name)
 
-	// Prepare the HTTP request
-	req, err := http.NewRequest("GET", utils.ConcatURL(mirror.HttpURL, traceFile), nil)
-	req.Header.Set("User-Agent", userAgent)
-	req.Close = true
-
-	// Prepare contexts
-	ctx, cancel := context.WithTimeout(req.Context(), clientDeadline)
-	ctx = context.WithValue(ctx, core.ContextMirrorID, mirror.ID)
-	req = req.WithContext(ctx)
-	defer cancel()
-
-	go func() {
-		select {
-		case <-t.stop:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-
-	resp, err := t.httpClient.Do(req)
+	resp, err := t.httpClient.R().SetHeader(userAgentName, userAgent).Get(utils.ConcatURL(mirror.HttpURL, traceFile))
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
-	scanner := bufio.NewScanner(bufio.NewReader(resp.Body))
+	scanner := bufio.NewScanner(bufio.NewReader(resp.RawBody()))
 	scanner.Split(bufio.ScanWords)
 	scanner.Scan()
 	if err := scanner.Err(); err != nil {
