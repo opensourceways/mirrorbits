@@ -96,6 +96,7 @@ type Configuration struct {
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
 
+	PreReleaseVersion   string           `yaml:"PreReleaseVersion"`
 	RepositoryFilter    DirFilter        `yaml:"RepositoryFilter"`
 	RepoFileIntoVersion []FileVersionMap `yaml:"RepoFileIntoVersion"`
 }

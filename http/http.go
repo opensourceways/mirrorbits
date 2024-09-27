@@ -238,11 +238,12 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 	}
 
 	// Prepare and return the list of all potential mirrors
-	fileList := filesystem.GetSelectorList()
-	if len(fileList) == 0 {
+	repoVersionList := filesystem.GetSelectorList()
+	if len(repoVersionList) == 0 || len(repoVersionList[fileInfo.Path[1:]]) == 0 {
 		return nil, nil, nil
 	}
-	allMirrorList, err := cache.GetMirrors(fileList[0].Dir+filesystem.Sep+fileList[0].Name, clientInfo)
+	version := fileInfo.Path[1:]
+	allMirrorList, err := cache.GetMirrors(repoVersionList[version][0].Dir+filesystem.Sep+repoVersionList[version][0].Name, clientInfo)
 	if err != nil {
 		return nil, nil, err
 	}

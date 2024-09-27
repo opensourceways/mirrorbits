@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-resty/resty/v2"
-	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/filesystem"
 	"github.com/opensourceways/mirrorbits/utils"
@@ -25,14 +24,14 @@ type HttpScanner struct {
 }
 
 // Scan starts an http head scan of the given mirror
-func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, string, error) {
+func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem.LayerFile, stop <-chan struct{}) (core.Precision, string, error) {
 
-	fileList := filesystem.GetSelectorList()
+	fileList := repoVersion
 	recentFile := fileList[0]
 	filePath := recentFile.Dir + filesystem.Sep + recentFile.Name
 
 	if !strings.HasPrefix(httpUrl, "https://") {
-		return 0, filePath, fmt.Errorf("%s does not start with https://", httpUrl)
+		return 0, filePath, fmt.Errorf("[%s] %s does not start with https://", identifier, httpUrl)
 	}
 
 	if utils.IsStopped(stop) {
@@ -52,7 +51,7 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-c
 		return 0, filePath, err
 	}
 	if head.StatusCode() != http.StatusOK {
-		return 0, filePath, errors.New("mirror http url: " + head.Status() + " " + httpUrl + " request failed")
+		return 0, filePath, errors.New(identifier + " mirror http url: " + head.Status() + " " + httpUrl + " request failed")
 	}
 
 	fd := filesystem.FileData{}
@@ -62,14 +61,14 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-c
 	retry:
 		head1, err1 := client.R().Head(utils.ConcatURL(uri.String(), fileUrl))
 		if err1 != nil {
-			return 0, filePath, err
+			return 0, fileUrl, err
 		}
 		if head1.StatusCode() == http.StatusTooManyRequests {
 			time.Sleep(time.Second)
 			goto retry
 		}
 		if head1.StatusCode() != http.StatusOK {
-			return 0, filePath, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
+			return 0, fileUrl, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
 				", http url: " + uri.String() + "/" + fileUrl + " request failed")
 		}
 
@@ -82,6 +81,7 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, conn redis.Conn, stop <-c
 		modTime, _ := time.Parse(time.RFC1123, modTimeStr)
 		fd.ModTime = modTime
 		r.scan.ScannerAddFile(fd)
+
 	}
 
 	return 0, "", nil

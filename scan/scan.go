@@ -117,21 +117,21 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	conn.Send("DEL", s.filesTmpKey)
 
 	var precision core.Precision
-	t1 := time.Now()
-	precision, filePath, err := scanner.Scan(url, name, conn, stop)
-	log.Infof("[%s] scan files cost time = %4.8f s \n", name, time.Since(t1).Seconds())
-	if err != nil {
-		// Discard MULTI
-		s.ScannerDiscard()
 
-		// Remove the temporary key
-		conn.Do("DEL", s.filesTmpKey)
-
-		log.Warningf("[%s] Removing %s from mirror", name, filePath)
-		conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", filePath), id)
-
-		log.Errorf("[%s] %s", name, err.Error())
-		return nil, err
+	repoVersionList := filesystem.GetSelectorList()
+	var failedRepoVersionList []string
+	for k, p := range repoVersionList {
+		if len(p) == 0 {
+			continue
+		}
+		t1 := time.Now()
+		precision1, filePath, err := scanner.Scan(url, name, p, stop)
+		precision = precision1
+		log.Infof("[%s] scan files cost time = %4.8f s \n", name, time.Since(t1).Seconds())
+		if err != nil {
+			failedRepoVersionList = append(failedRepoVersionList, k)
+			log.Errorf("[%s] file: %s, error: %s", name, filePath, err.Error())
+		}
 	}
 
 	// Exec multi
@@ -437,10 +437,18 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		x = z - 21
 	}
 	log.Info("[source] Scanning the filesystem...")
+	releaseVersion := cnf.PreReleaseVersion
+	length := len(releaseVersion)
 	// read line by line
 	for fileScanner.Scan() {
 		line := fileScanner.Bytes()
+		if len(line) <= y {
+			continue
+		}
 		path := string(line[y:])
+		if length > 0 && len(path) >= length && releaseVersion == path[:length] {
+			continue
+		}
 		if filesystem.Filter(path) && len(line) >= z {
 			fd := filesystem.BuildFileTree(path, line[:x-1], line[x:y-1], cnf)
 			fd = s.walkSource(conn, fd)

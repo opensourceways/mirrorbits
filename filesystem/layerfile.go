@@ -133,11 +133,21 @@ func GetRepoVersionList() []DisplayRepoVersion {
 }
 
 // get a file list that supports to use for mirror check
-func GetSelectorList() []*LayerFile {
-	var ans []*LayerFile
+func GetSelectorList() map[string][]*LayerFile {
+	ans := make(map[string][]*LayerFile, len(selectorList))
 	lock.RLock()
-	ans = selectorList
-	lock.RUnlock()
+	defer lock.RUnlock()
+	for _, p := range selectorList {
+		arr := strings.Split(p.Dir, Sep)
+		if len(arr) == 0 {
+			continue
+		}
+		if _, ok := ans[arr[0]]; ok {
+			ans[arr[0]] = append(ans[arr[0]], p)
+		} else {
+			ans[arr[0]] = []*LayerFile{p}
+		}
+	}
 	return ans
 }
 
