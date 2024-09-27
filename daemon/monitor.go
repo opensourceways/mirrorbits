@@ -152,7 +152,7 @@ func (m *monitor) MonitorLoop() {
 	// Scan the local repository
 	repoFileText := utils.ConcatURL(cnf.Repository, "/files.txt")
 	for {
-		if _, err := os.Stat(repoFileText); os.IsExist(err) {
+		if _, err := os.Stat(repoFileText); !os.IsNotExist(err) {
 			break
 		}
 		log.Errorf("%s: No such file or directory", repoFileText)
