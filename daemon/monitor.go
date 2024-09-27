@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -149,6 +150,14 @@ func (m *monitor) MonitorLoop() {
 	cnf := GetConfig()
 	filesystem.InitPathFilter(cnf.RepositoryFilter)
 	// Scan the local repository
+	repoFileText := utils.ConcatURL(cnf.Repository, "/files.txt")
+	for {
+		if _, err := os.Stat(repoFileText); os.IsExist(err) {
+			break
+		}
+		log.Errorf("%s: No such file or directory", repoFileText)
+		time.Sleep(time.Second * 10)
+	}
 	m.retry(func(i uint) error {
 		err := m.scanRepository()
 		if err != nil {
