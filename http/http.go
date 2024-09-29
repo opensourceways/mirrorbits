@@ -275,8 +275,14 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
+	// TODO Compatible with openeuler online website api, temporary solution: edit url path
+	editedUrlPath := r.URL.Path
+	if strings.HasSuffix(editedUrlPath, "/ISO") {
+		editedUrlPath = editedUrlPath[:len(editedUrlPath)-4]
+	}
+
 	// Sanitize path
-	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository, r.URL.Path)
+	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository, editedUrlPath)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
