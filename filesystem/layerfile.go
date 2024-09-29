@@ -123,6 +123,16 @@ func BuildFileTree(path string, size, modTime []byte, cnf *config.Configuration)
 	return fileTreeReplica.Root.layeringPath(path, size, modTime, cnf)
 }
 
+func GetRepoFileData(path string) LayerFile {
+	if len(path) == 0 {
+		return LayerFile{}
+	}
+	if p, ok := fileTree.Mapping[path]; ok {
+		return *p
+	}
+	return LayerFile{}
+}
+
 // get the website displayed repo version list
 func GetRepoVersionList() []DisplayRepoVersion {
 	var ans []DisplayRepoVersion

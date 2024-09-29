@@ -61,21 +61,27 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 	retry:
 		head1, err1 := client.R().Head(utils.ConcatURL(uri.String(), fileUrl))
 		if err1 != nil {
-			return 0, fileUrl, err
+			return 0, filePath, err
 		}
 		if head1.StatusCode() == http.StatusTooManyRequests {
 			time.Sleep(time.Second)
 			goto retry
 		}
 		if head1.StatusCode() != http.StatusOK {
-			return 0, fileUrl, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
+			return 0, filePath, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
 				", http url: " + uri.String() + "/" + fileUrl + " request failed")
 		}
 
 		sizeStr := head1.Header().Get("Content-Length")
 		size, _ := strconv.ParseInt(sizeStr, 10, 64)
-		fd.Path = fileUrl
+		fd.Path = filePath
 		fd.Size = size
+
+		sourceFile := filesystem.GetRepoFileData(fileUrl)
+		if size == 0 || sourceFile.Size != size {
+			return 0, filePath, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
+				", http url: " + uri.String() + "/" + fileUrl + " size mismatch")
+		}
 
 		modTimeStr := head1.Header().Get("Last-Modified")
 		modTime, _ := time.Parse(time.RFC1123, modTimeStr)
