@@ -277,8 +277,8 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	// TODO Compatible with openeuler online website api, temporary solution: edit url path
 	editedUrlPath := r.URL.Path
-	if strings.HasSuffix(editedUrlPath, "/ISO") {
-		editedUrlPath = editedUrlPath[:len(editedUrlPath)-4]
+	if strings.HasSuffix(editedUrlPath, "/ISO/") {
+		editedUrlPath = editedUrlPath[:len(editedUrlPath)-5]
 	}
 
 	// Sanitize path
