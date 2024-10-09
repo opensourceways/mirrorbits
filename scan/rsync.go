@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/opensourceways/mirrorbits/filesystem"
 	"io"
 	"net/url"
 	"os/exec"
@@ -15,9 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
 )
 
 var (
@@ -103,7 +104,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 	line, err := readln(reader)
 	for err == nil {
 		var size int64
-		var f filedata
+		var f filesystem.FileData
 		var modTime time.Time
 		var modString string
 
@@ -141,9 +142,9 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 		}
 
 		// Fill the struct
-		f.size = size
-		f.modTime = modTime
-		f.path = ret[4]
+		f.Size = size
+		f.ModTime = modTime
+		f.Path = ret[4]
 
 		r.scan.ScannerAddFile(f)
 

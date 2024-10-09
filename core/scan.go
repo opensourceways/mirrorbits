@@ -10,6 +10,7 @@ const (
 	RSYNC ScannerType = iota
 	// FTP represents an ftp scanner
 	FTP
+	HTTP
 )
 
 // Precision is used to compute the precision of the mod time (millisecond, second)

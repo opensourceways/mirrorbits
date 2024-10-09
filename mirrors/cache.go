@@ -10,11 +10,11 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/filesystem"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
 )
 
 // Cache implements a local caching mechanism of type LRU for content available in the
@@ -167,7 +167,9 @@ func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors
 	v, ok := c.fmCache.Get(path)
 	if ok {
 		mirrorsIDs = v.(*fileMirrorValue).value
-	} else {
+	}
+
+	if len(mirrorsIDs) == 0 {
 		mirrorsIDs, err = c.fetchFileMirrors(path)
 		if err != nil {
 			return
