@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/opensourceways/mirrorbits/core"
 	"github.com/op/go-logging"
+	"github.com/opensourceways/mirrorbits/core"
 	"gopkg.in/yaml.v2"
 )
 
@@ -43,10 +43,10 @@ func defaultConfig() Configuration {
 		LogDir:                 "",
 		TraceFileLocation:      "",
 		GeoipDatabasePath:      "/usr/share/GeoIP/",
-		ConcurrentSync:         5,
-		ScanInterval:           30,
-		CheckInterval:          1,
-		RepositoryScanInterval: 5,
+		ConcurrentSync:         50,
+		ScanInterval:           60,
+		CheckInterval:          30,
+		RepositoryScanInterval: 50,
 		MaxLinkHeaders:         10,
 		FixTimezoneOffsets:     false,
 		Hashes: hashing{
@@ -95,6 +95,29 @@ type Configuration struct {
 
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
+
+	PreReleaseVersion   string           `yaml:"PreReleaseVersion"`
+	RepositoryFilter    DirFilter        `yaml:"RepositoryFilter"`
+	RepoFileIntoVersion []FileVersionMap `yaml:"RepoFileIntoVersion"`
+}
+
+type ParticularFileMapping struct {
+	VersionName  string   `yaml:"VersionName"`
+	ScenarioName string   `yaml:"ScenarioName"`
+	ArchName     string   `yaml:"ArchName"`
+	SourcePath   []string `yaml:"SourcePath"`
+	SHA256List   []string `yaml:"SHA256List"`
+}
+
+type DirFilter struct {
+	SecondDir      []string                `yaml:"SecondDir"`
+	ThirdDir       []string                `yaml:"ThirdDir"`
+	ParticularFile []ParticularFileMapping `yaml:"ParticularFileMapping"`
+}
+
+type FileVersionMap struct {
+	FilePath string `yaml:"FilePath"`
+	Version  string `yaml:"Version"`
 }
 
 type fallback struct {
@@ -254,7 +277,7 @@ func testSentinelsEq(a, b []sentinels) bool {
 	return true
 }
 
-//DUPLICATE
+// DUPLICATE
 func isInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {

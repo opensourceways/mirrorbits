@@ -1,32 +1,31 @@
-FROM openeuler/openeuler:22.03-lts-sp1
+FROM openeuler/openeuler:24.03-lts
 
-LABEL maintainer="etix@l0cal.com"
+RUN dnf -y update && \
+    dnf install -y golang && \
+    go env -w GO111MODULE=on && \
+    dnf install -y gcc make pkg-config git zlib zlib-devel autoconf automake libtool curl g++ unzip protobuf-compiler rsync python3 python3-pip python3-devel bazel && \
+    groupadd -g 1000 mirrorbits && useradd -u 1000 -g 1000 -s /sbin/nologin -m mirrorbits && \
+    mkdir -p /go/bin && mkdir -p /go/src/mirrorbits && \
+    go install github.com/maxmind/geoipupdate/v7/cmd/geoipupdate@latest && cp ~/go/bin/geoipupdate /usr/local/bin/ && \
+    mkdir -p /opt/mirrorbits/GeoIP
 
-RUN mkdir -p /go/bin && mkdir -p /go/src/mirrorbits
-RUN yum -y update && yum install -y sudo && sudo yum install -y go
-ENV GOROOT=/usr/lib/golang
-ENV PATH=$PATH:/usr/lib/golang/bin
-ENV GOPATH=/go
-ENV PATH=$GOPATH/bin/:$PATH
-ENV GO111MODULE=on
-RUN go env -w GOPROXY=https://goproxy.cn,direct
+WORKDIR /go/src/mirrorbits
+COPY . .
 
-RUN sudo yum install -y gcc make && sudo yum install -y pkg-config git zlib zlib-devel autoconf automake libtool curl g++ unzip protobuf-compiler rsync python3 python3-pip python3-devel bazel
-RUN pip install pyyaml prettytable && sudo yum install -y redis
-# install geoipupdate binary, NOTE: default configuration file located at /usr/local/etc/GeoIP.conf
-# and geoip folder is /usr/share/GeoIP env GO111MODULE=on go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate
-RUN go get github.com/maxmind/geoipupdate/v4/cmd/geoipupdate && mkdir -p /usr/share/GeoIP/
-COPY . /go/src/mirrorbits
-COPY GeoIP /usr/share/GeoIP/
-COPY scripts /
-RUN chmod u+x /usr/share/GeoIP
+RUN mkdir -p /var/log/mirrorbits && chown 1000:1000 /var/log/mirrorbits && \
+    cd /go/src/mirrorbits && mkdir -p bin && make build && cp bin/mirrorbits /usr/local/bin/ && \
+    cd /usr/local/src && git clone https://github.com/tj/git-extras.git && \
+    cd /usr/local/src/git-extras && git checkout tags/7.2.0 -b tag-7.2.0 && cp bin/* /usr/local/bin && \
+    mkdir -p /opt/mirrorbits/templates /opt/mirrorbits/python-scripts /opt/mirrorbits/GeoIP && \
+    cp /go/src/mirrorbits/templates/* /opt/mirrorbits/templates && cp /go/src/mirrorbits/scripts/* /opt/mirrorbits/python-scripts && \
+    cp /go/src/mirrorbits/GeoIP/* /opt/mirrorbits/GeoIP && \
+    chown -R 1000:1000 /opt/mirrorbits
 
-RUN mkdir -p /srv/repo /var/log/mirrorbits && \
-    cd /go/src/mirrorbits && make && \
-    make install PREFIX=/usr
-RUN cp /go/src/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
+USER mirrorbits
+WORKDIR /opt/mirrorbits
 
-RUN cd / && git clone https://github.com/tj/git-extras.git
-RUN /git-extras/bin/git-extras update
-ENTRYPOINT /usr/bin/mirrorbits daemon -config /etc/mirrorbits.conf
+RUN cd /opt/mirrorbits/python-scripts && python3 -m venv venv && ./venv/bin/pip install pyyaml prettytable
+
+ENTRYPOINT mirrorbits daemon -config /vault/secrets/mirrorbits.conf -p /opt/mirrorbits/mirrorbits.pid
+
 EXPOSE 8080

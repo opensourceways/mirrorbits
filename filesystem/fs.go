@@ -5,6 +5,7 @@ package filesystem
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -52,7 +53,7 @@ func IsInRepository(repository, filePath string) bool {
 	if filePath == repository {
 		return true
 	}
-	if strings.HasPrefix(filePath, repository+"/") {
+	if strings.HasPrefix(filePath, repository+string(os.PathSeparator)) {
 		return true
 	}
 	return false
