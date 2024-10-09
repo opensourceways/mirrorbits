@@ -30,10 +30,9 @@ import (
 
 var (
 	healthCheckThreads  = 10
-	userAgent           = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 	errRedirect         = errors.New("Redirect not allowed")
 	errMirrorNotScanned = errors.New("Mirror has not yet been scanned")
-	healthyCheckClient  = resty.New().RemoveProxy()
+	healthyCheckClient  = resty.New().RemoveProxy().SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 
 	log = logging.MustGetLogger("main")
 )
@@ -477,7 +476,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 	}
 
 	// Prepare the HTTP request
-	head, err := healthyCheckClient.R().SetHeader("User-Agent", userAgent).Head(mirror.HttpURL + "/" + file)
+	head, err := healthyCheckClient.R().Head(mirror.HttpURL + "/" + file)
 	if err != nil {
 		log.Errorf(format+"Unable to http connect to mirror: %s", mirror.Name, err)
 		var opErr *net.OpError

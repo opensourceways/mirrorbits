@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var mirrorCheckClient = resty.New().RemoveProxy()
+var mirrorCheckClient = resty.New().RemoveProxy().SetHeader(userAgentName, userAgent)
 
 // HttpScanner is the implementation of an http scanner
 type HttpScanner struct {
@@ -42,7 +42,7 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 	if err != nil {
 		return 0, filePath, err
 	}
-	client := mirrorCheckClient.SetHeader(userAgentName, userAgent)
+	client := mirrorCheckClient
 	head, err := client.R().Head(uri.String())
 	if err != nil {
 		return 0, filePath, err
@@ -59,7 +59,8 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 		fileUrl := fl.Dir + filesystem.Sep + fl.Name
 
 	retry:
-		head1, err1 := client.R().Head(utils.ConcatURL(uri.String(), fileUrl))
+		headFileUrl := utils.ConcatURL(uri.String(), fileUrl)
+		head1, err1 := client.R().Head(headFileUrl)
 		if err1 != nil {
 			return 0, filePath, err
 		}
@@ -68,8 +69,7 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 			goto retry
 		}
 		if head1.StatusCode() != http.StatusOK {
-			return 0, filePath, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
-				", http url: " + uri.String() + "/" + fileUrl + " request failed")
+			return 0, filePath, fmt.Errorf("file no.%d, http url: %s request failed, response status: %s", i, headFileUrl, head1.Status())
 		}
 
 		sizeStr := head1.Header().Get("Content-Length")
@@ -79,8 +79,7 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 
 		sourceFile := filesystem.GetRepoFileData(fileUrl)
 		if size == 0 || sourceFile.Size != size {
-			return 0, filePath, errors.New("file no." + strconv.FormatInt(int64(i), 10) +
-				", http url: " + uri.String() + "/" + fileUrl + " size mismatch")
+			return 0, filePath, fmt.Errorf("file no.%d, http url: %s, size mismatch: %d[dest] != %d[src]", i, headFileUrl, size, sourceFile.Size)
 		}
 
 		modTimeStr := head1.Header().Get("Last-Modified")

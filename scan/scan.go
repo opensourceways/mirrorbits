@@ -128,7 +128,7 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		precision = precision1
 		log.Infof("[%s] scan files cost time = %4.8f s \n", name, time.Since(t1).Seconds())
 		if err != nil {
-			log.Errorf("[%s] file: %s, error: %s", name, filePath, err.Error())
+			log.Errorf("[%s] error: %s", name, err.Error())
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", filePath), id)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%d_%s", id, filePath))
 			// Publish update

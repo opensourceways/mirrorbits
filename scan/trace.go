@@ -41,7 +41,7 @@ func NewTraceHandler(redis *database.Redis, stop <-chan struct{}) *Trace {
 		stop:  stop,
 	}
 
-	t.httpClient = resty.New().RemoveProxy()
+	t.httpClient = resty.New().RemoveProxy().SetHeader(userAgentName, userAgent)
 
 	return t
 }
@@ -57,7 +57,7 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 
 	log.Debugf("Getting latest trace file for %s...", mirror.Name)
 
-	resp, err := t.httpClient.R().SetHeader(userAgentName, userAgent).Get(utils.ConcatURL(mirror.HttpURL, traceFile))
+	resp, err := t.httpClient.R().Get(utils.ConcatURL(mirror.HttpURL, traceFile))
 	if err != nil {
 		return err
 	}
