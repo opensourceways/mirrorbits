@@ -282,7 +282,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	// Sanitize path
-	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository, editedUrlPath)
+	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository+string(os.PathSeparator)+"sha", editedUrlPath)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
