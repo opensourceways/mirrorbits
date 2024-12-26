@@ -126,7 +126,7 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		t1 := time.Now()
 		precision1, filePath, err := scanner.Scan(url, name, p, stop)
 		precision = precision1
-		log.Infof("[%s] scan files cost time = %4.8f s \n", name, time.Since(t1).Seconds())
+		log.Infof("[%s] [%s] scan files cost time = %4.8f s \n", name, p[0].Dir, time.Since(t1).Seconds())
 		if err != nil {
 			log.Errorf("[%s] error: %s", name, err.Error())
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", filePath), id)
@@ -429,6 +429,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		return fmt.Errorf("cannot open the file: %s", repoFileText)
 	}
 	fileScanner := bufio.NewScanner(file)
+	fileScanner.Scan()
 	x, y, z := 0, 0, 0
 	if fileScanner.Scan() {
 		line := fileScanner.Bytes()

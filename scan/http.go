@@ -55,9 +55,10 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 	}
 
 	fd := filesystem.FileData{}
+	counter := 0
 	for i, fl := range fileList {
 		fileUrl := fl.Dir + filesystem.Sep + fl.Name
-
+		time.Sleep(time.Duration(1<<counter) * time.Second)
 	retry:
 		headFileUrl := utils.ConcatURL(uri.String(), fileUrl)
 		head1, err1 := client.R().Head(headFileUrl)
@@ -65,8 +66,11 @@ func (r *HttpScanner) Scan(httpUrl, identifier string, repoVersion []*filesystem
 			return 0, filePath, err
 		}
 		if head1.StatusCode() == http.StatusTooManyRequests {
-			time.Sleep(time.Second)
-			goto retry
+			counter++
+			time.Sleep(time.Duration(1<<counter) * time.Second)
+			if counter <= 4 {
+				goto retry
+			}
 		}
 		if head1.StatusCode() != http.StatusOK {
 			return 0, filePath, fmt.Errorf("file no.%d, http url: %s request failed, response status: %s", i, headFileUrl, head1.Status())

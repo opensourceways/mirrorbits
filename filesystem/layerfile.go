@@ -325,7 +325,7 @@ func (ft *LayerFile) setFileData(path string, size, modTime []byte, cnf *config.
 		fd.ModTime = lastModTime
 		ft.setRecentFile()
 	}
-	sha256FilePath := strings.ReplaceAll(utils.ConcatURL(cnf.Repository, path), Sep, string(os.PathSeparator)) + FileExtensionSha256
+	sha256FilePath := strings.ReplaceAll(utils.ConcatURL(cnf.Repository+"/sha", path), Sep, string(os.PathSeparator)) + FileExtensionSha256
 	data, err1 := os.ReadFile(sha256FilePath)
 	if err1 == nil {
 		ft.Sha256 = strings.Split(string(data), " ")[0]
