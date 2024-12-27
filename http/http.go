@@ -282,7 +282,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	// Sanitize path
-	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository+string(os.PathSeparator)+"sha", editedUrlPath)
+	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository, editedUrlPath)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -326,7 +326,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 				}
 				mlist = append(mlist, mirrors.Mirror{
 					ID:            i * -1,
-					Name:          fmt.Sprintf("fallback%d", i),
+					Name:          f.Name,
 					HttpURL:       f.URL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
 					Country:       country,

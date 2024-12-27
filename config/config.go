@@ -66,6 +66,7 @@ func defaultConfig() Configuration {
 // Configuration contains all the option available in the yaml file
 type Configuration struct {
 	Repository              string     `yaml:"Repository"`
+	RepositoryFileListText  string     `yaml:"RepositoryFileListText"`
 	Templates               string     `yaml:"Templates"`
 	LocalJSPath             string     `yaml:"LocalJSPath"`
 	OutputMode              string     `yaml:"OutputMode"`
@@ -87,7 +88,7 @@ type Configuration struct {
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
-	Fallbacks               []fallback `yaml:"Fallbacks"`
+	Fallbacks               []Fallback `yaml:"Fallbacks"`
 	SchemaStrictMatch       bool       `yaml:"SchemaStrictMatch"`
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
@@ -120,10 +121,11 @@ type FileVersionMap struct {
 	Version  string `yaml:"Version"`
 }
 
-type fallback struct {
+type Fallback struct {
 	URL           string `yaml:"URL"`
 	CountryCode   string `yaml:"CountryCode"`
 	ContinentCode string `yaml:"ContinentCode"`
+	Name          string `yaml:"Name"`
 }
 
 type sentinels struct {

@@ -413,7 +413,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 	if _, err = os.Stat(cnf.Repository); os.IsNotExist(err) {
 		return fmt.Errorf("%s: No such file or directory", cnf.Repository)
 	}
-	repoFileText := utils.ConcatURL(cnf.Repository, "/files.txt")
+	repoFileText := cnf.RepositoryFileListText
 	if _, err = os.Stat(repoFileText); err != nil {
 		return fmt.Errorf("%s: No such file or directory", repoFileText)
 	}

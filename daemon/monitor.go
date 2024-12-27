@@ -149,7 +149,7 @@ func (m *monitor) MonitorLoop() {
 	cnf := GetConfig()
 	filesystem.InitPathFilter(cnf.RepositoryFilter)
 	// Scan the local repository
-	repoFileText := utils.ConcatURL(cnf.Repository, "/files.txt")
+	repoFileText := cnf.RepositoryFileListText
 	for {
 		if _, err := os.Stat(repoFileText); !os.IsNotExist(err) {
 			break
