@@ -56,7 +56,7 @@ type Mirror struct {
 	ExcludedCountryFields       []string         `redis:"-" json:"-" yaml:"-"`
 	Filepath                    string           `redis:"-" json:"-" yaml:"-"`
 	Weight                      float32          `redis:"-" json:"-" yaml:"-"`
-	ComputedScore               int              `redis:"-" yaml:"-"`
+	ComputedScore               [3]int           `redis:"-" yaml:"-" json:",omitempty" `
 	LastSync                    Time             `redis:"lastSync" yaml:"-"`
 	LastSuccessfulSync          Time             `redis:"lastSuccessfulSync" yaml:"-"`
 	LastSuccessfulSyncProtocol  core.ScannerType `redis:"lastSuccessfulSyncProtocol" yaml:"-"`
@@ -136,7 +136,17 @@ type ByComputedScore struct {
 
 // Less compares two mirrors based on their score
 func (b ByComputedScore) Less(i, j int) bool {
-	return b.Mirrors[i].ComputedScore > b.Mirrors[j].ComputedScore
+	if b.Mirrors[i].ComputedScore[0] > b.Mirrors[j].ComputedScore[0] {
+		return true
+	}
+
+	if b.Mirrors[i].ComputedScore[1] > b.Mirrors[j].ComputedScore[1] {
+		return true
+	} else if b.Mirrors[i].ComputedScore[1] < b.Mirrors[j].ComputedScore[1] {
+		return false
+	}
+
+	return b.Mirrors[i].ComputedScore[2] > b.Mirrors[j].ComputedScore[2]
 }
 
 // ByExcludeReason is used to sort a slice of Mirror alphabetically by their exclude reason

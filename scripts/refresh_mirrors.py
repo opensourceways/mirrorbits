@@ -64,6 +64,7 @@ def init_mirrors():
                 latitude = mirror_info['Latitude']
                 longitude = mirror_info['Longitude']
                 country = mirror_info['Country']
+                enabled = mirror_info['Enabled']
                 command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
                                  '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
@@ -73,7 +74,10 @@ def init_mirrors():
                                                  http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
                                                  net_bandwidth, latitude, longitude, country, mirror_name)
                 judge_statement(command_string)
-                judge_statement('mirrorbits enable "{}"'.format(mirror_name))
+                if enabled:
+                    judge_statement('mirrorbits enable "{}"'.format(mirror_name))
+                else:
+                    judge_statement('mirrorbits disable "{}"'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
                 logging.info('[init] add a new mirror: {}, details are below'.format(i[:-5]))
                 pt.add_row(['Name', i[:-5]])
@@ -160,6 +164,7 @@ def sync_and_refresh():
                 latitude = mirror_info['Latitude']
                 longitude = mirror_info['Longitude']
                 country = mirror_info['Country']
+                enabled = mirror_info['Enabled']
                 command_string = 'mirrorbits add -admin-email="{0}" -admin-name="{1}" -as-only="{2}" ' \
                                  '-continent-only="{3}" -country-only="{4}" -ftp="{5}" -http="{6}" -rsync="{7}" ' \
                                  '-score="{8}" -sponsor-logo="{9}" -sponsor-name="{10}" -sponsor-url="{11}" ' \
@@ -169,7 +174,10 @@ def sync_and_refresh():
                                                  http_url, rsync_url, score, sponsor_logo, sponsor_name, sponsor_url,
                                                  net_bandwidth, latitude, longitude, country, mirror_name)
                 judge_statement(command_string)
-                judge_statement('mirrorbits enable "{}"'.format(mirror_name))
+                if enabled:
+                    judge_statement('mirrorbits enable "{}"'.format(mirror_name))
+                else:
+                    judge_statement('mirrorbits disable "{}"'.format(mirror_name))
                 pt = PrettyTable(['Key', 'Value'])
                 logging.info('add a new mirror: {}, details are below'.format(i[:-5]))
                 pt.add_row(['Name', i[:-5]])

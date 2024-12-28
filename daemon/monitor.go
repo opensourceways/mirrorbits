@@ -433,7 +433,7 @@ func (m *monitor) syncLoop() {
 
 			err = scan.ErrNoSyncMethod
 
-			if mir.HttpURL != "" {
+			if mir.Enabled == true && mir.HttpURL != "" {
 				_, err = scan.Scan(core.HTTP, m.redis, m.cache, mir.HttpURL, id, m.stop)
 			}
 			if err == scan.ErrScanInProgress {
@@ -476,7 +476,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 	}
 
 	// Prepare the HTTP request
-	head, err := healthyCheckClient.R().Head(mirror.HttpURL + "/" + file)
+	head, err := healthyCheckClient.R().Head(utils.ConcatURL(mirror.HttpURL, file))
 	if err != nil {
 		log.Errorf(format+"Unable to http connect to mirror: %s", mirror.Name, err)
 		var opErr *net.OpError
