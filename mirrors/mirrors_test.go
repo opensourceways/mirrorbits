@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/network"
 	. "github.com/opensourceways/mirrorbits/testing"
-	"github.com/gomodule/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 )
 
@@ -23,7 +23,7 @@ func generateSimpleMirrorList(number int) Mirrors {
 	for i := 0; i < number; i++ {
 		m := Mirror{
 			ID:   i,
-			Name: fmt.Sprintf("M%d", i),
+			Name: fmt.Sprintf("Mapping%d", i),
 		}
 		ret = append(ret, m)
 	}
