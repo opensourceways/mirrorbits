@@ -551,6 +551,27 @@ func (m *monitor) getRandomFile(id int) (file string, size int64, err error) {
 
 // Trigger a sync of the local repository
 func (m *monitor) scanRepository() error {
+	cnf := GetConfig()
+	for i := 0; i < 3; i++ {
+		_, err := os.Create(cnf.RepositorySourcesLockFile)
+		if err == nil {
+			break
+		}
+	}
+	if _, err := os.Stat(cnf.RepositorySourcesLockFile); os.IsNotExist(err) {
+		return errors.New("before do scanning job, failed lock the sources")
+	}
+	defer func() {
+		for i := 0; i < 3; i++ {
+			err1 := os.Remove(cnf.RepositorySourcesLockFile)
+			if err1 == nil {
+				break
+			}
+		}
+		if _, err := os.Stat(cnf.RepositorySourcesLockFile); !os.IsNotExist(err) {
+			log.Error("after do scanning job, failed unlock the sources")
+		}
+	}()
 	err := scan.ScanSource(m.redis, false, m.stop)
 	if err != nil {
 		log.Errorf("Scanning source failed: %s", err.Error())

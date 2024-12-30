@@ -65,31 +65,32 @@ func defaultConfig() Configuration {
 
 // Configuration contains all the option available in the yaml file
 type Configuration struct {
-	Repository              string     `yaml:"Repository"`
-	RepositoryFileListText  string     `yaml:"RepositoryFileListText"`
-	Templates               string     `yaml:"Templates"`
-	LocalJSPath             string     `yaml:"LocalJSPath"`
-	OutputMode              string     `yaml:"OutputMode"`
-	ListenAddress           string     `yaml:"ListenAddress"`
-	Gzip                    bool       `yaml:"Gzip"`
-	RedisAddress            string     `yaml:"RedisAddress"`
-	RedisPassword           string     `yaml:"RedisPassword"`
-	RedisDB                 int        `yaml:"RedisDB"`
-	LogDir                  string     `yaml:"LogDir"`
-	TraceFileLocation       string     `yaml:"TraceFileLocation"`
-	GeoipDatabasePath       string     `yaml:"GeoipDatabasePath"`
-	ConcurrentSync          int        `yaml:"ConcurrentSync"`
-	ScanInterval            int        `yaml:"ScanInterval"`
-	CheckInterval           int        `yaml:"CheckInterval"`
-	RepositoryScanInterval  int        `yaml:"RepositoryScanInterval"`
-	MaxLinkHeaders          int        `yaml:"MaxLinkHeaders"`
-	FixTimezoneOffsets      bool       `yaml:"FixTimezoneOffsets"`
-	Hashes                  hashing    `yaml:"Hashes"`
-	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
-	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
-	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
-	Fallbacks               []Fallback `yaml:"Fallbacks"`
-	SchemaStrictMatch       bool       `yaml:"SchemaStrictMatch"`
+	Repository                string     `yaml:"Repository"`
+	RepositoryFileListText    string     `yaml:"RepositoryFileListText"`
+	RepositorySourcesLockFile string     `yaml:"RepositorySourcesLockFile"`
+	Templates                 string     `yaml:"Templates"`
+	LocalJSPath               string     `yaml:"LocalJSPath"`
+	OutputMode                string     `yaml:"OutputMode"`
+	ListenAddress             string     `yaml:"ListenAddress"`
+	Gzip                      bool       `yaml:"Gzip"`
+	RedisAddress              string     `yaml:"RedisAddress"`
+	RedisPassword             string     `yaml:"RedisPassword"`
+	RedisDB                   int        `yaml:"RedisDB"`
+	LogDir                    string     `yaml:"LogDir"`
+	TraceFileLocation         string     `yaml:"TraceFileLocation"`
+	GeoipDatabasePath         string     `yaml:"GeoipDatabasePath"`
+	ConcurrentSync            int        `yaml:"ConcurrentSync"`
+	ScanInterval              int        `yaml:"ScanInterval"`
+	CheckInterval             int        `yaml:"CheckInterval"`
+	RepositoryScanInterval    int        `yaml:"RepositoryScanInterval"`
+	MaxLinkHeaders            int        `yaml:"MaxLinkHeaders"`
+	FixTimezoneOffsets        bool       `yaml:"FixTimezoneOffsets"`
+	Hashes                    hashing    `yaml:"Hashes"`
+	DisallowRedirects         bool       `yaml:"DisallowRedirects"`
+	WeightDistributionRange   float32    `yaml:"WeightDistributionRange"`
+	DisableOnMissingFile      bool       `yaml:"DisableOnMissingFile"`
+	Fallbacks                 []Fallback `yaml:"Fallbacks"`
+	SchemaStrictMatch         bool       `yaml:"SchemaStrictMatch"`
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
 	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
