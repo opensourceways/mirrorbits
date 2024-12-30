@@ -26,6 +26,6 @@ WORKDIR /opt/mirrorbits
 
 RUN cd /opt/mirrorbits/python-scripts && python3 -m venv venv && ./venv/bin/pip install pyyaml prettytable
 
-ENTRYPOINT mirrorbits daemon -config /vault/secrets/mirrorbits.conf -p /opt/mirrorbits/mirrorbits.pid -debug
+ENTRYPOINT mirrorbits daemon -config /vault/secrets/mirrorbits.conf -p /opt/mirrorbits/mirrorbits.pid
 
 EXPOSE 8080
