@@ -7,13 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/opensourceways/mirrorbits/logs"
 	"html/template"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -21,17 +20,16 @@ import (
 	"sync"
 	"time"
 
-	systemd "github.com/coreos/go-systemd/daemon"
+	"github.com/coreos/go-systemd/v22/daemon"
+	"github.com/gomodule/redigo/redis"
+	"github.com/op/go-logging"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/filesystem"
-	"github.com/opensourceways/mirrorbits/logs"
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
-	"github.com/op/go-logging"
 	"gopkg.in/tylerb/graceful.v1"
 )
 
@@ -196,7 +194,7 @@ func (h *HTTP) RunServer() (err error) {
 	// This is a no-op if NOTIFY_SOCKET isn't set.
 	if os.Getenv("NOTIFY_SOCKET") != "" {
 		log.Debug("Notifying systemd of readiness")
-		systemd.SdNotify(false, systemd.SdNotifyReady)
+		daemon.SdNotify(false, daemon.SdNotifyReady)
 	}
 
 	/* Serve until we receive a SIGTERM */
@@ -224,77 +222,38 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//select mirrors based on file or directory
+// select mirrors based on file or directory
 func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo,
 	clientInfo network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error) {
-	var fileList []*filesystem.FileInfo
-	localPath := path.Join(GetConfig().Repository, fileInfo.Path)
-	f, err := os.Stat(localPath)
+
+	cnf := GetConfig()
+
+	relPath, err := filepath.Abs(cnf.Repository + fileInfo.Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	_, err = os.Stat(relPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if f.IsDir() {
-		//try sub file instead
-		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
-			//skip directory or filename start with .
-			if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
-				return nil
-			}
-			// only collect ten files at most
-			if len(fileList) > 10 {
-				return io.EOF
-			}
-			newFileInfo := filesystem.NewFileInfo(path[len(GetConfig().Repository):])
-			fileList = append(fileList, &newFileInfo)
-			return nil
-		})
-		if err != io.EOF {
-			return nil, nil, err
-		}
-	} else {
-		fileList = append(fileList, fileInfo)
+	// Prepare and return the list of all potential mirrors
+	repoVersionList := filesystem.GetSelectorList()
+	if len(repoVersionList) == 0 || len(repoVersionList[fileInfo.Path[1:]]) == 0 {
+		return nil, nil, nil
 	}
-	if len(fileList) == 0 {
-		return nil, nil, errors.New(fmt.Sprintf("unable to get files from local path for requested file %s", fileInfo.Path))
-	}
-	var allMirrorList mirrors.Mirrors
-	mapMirror := make(map[string]string)
-	for i, f := range fileList {
-		_, err = cache.GetFileInfo(f.Path)
-		if err != nil {
-			log.Errorf("unable to find file %s from cache", f.Path)
-			continue
-		}
-		mlist, err := cache.GetMirrors(f.Path, clientInfo)
-		if err != nil {
-			log.Errorf("unable to get mirror for file %s ", f.Path)
-			continue
-		}
-		//append mirrors only when both included
-		if i == 0 {
-			for _, m := range mlist {
-				allMirrorList = append(allMirrorList, m)
-				mapMirror[m.Name] = m.Name
-				//m.Country = m.CountryCodes
-			}
-		} else {
-			var tempMirror mirrors.Mirrors
-			for _, m := range mlist {
-				//m.Country = m.CountryCodes
-				if _, ok := mapMirror[m.Name]; ok {
-					tempMirror = append(tempMirror, m)
-				}
-			}
-			allMirrorList = tempMirror
-		}
+	version := fileInfo.Path[1:]
+	allMirrorList, err := cache.GetMirrors(repoVersionList[version][0].Dir+filesystem.Sep+repoVersionList[version][0].Name, clientInfo)
+	if err != nil {
+		return nil, nil, err
 	}
 	log.Infof("all mirrors are scanned and there are %d valid mirrors.", len(allMirrorList))
 	if len(allMirrorList) == 0 {
 		return nil, nil, errors.New("neither of mirrors have requested file(s)")
 	}
-	//since all files are found in mirrors, we can use first file for detection
-	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList)
+
+	// since selected files are found in mirrors, we can use first file for detection
+	mList, mExcluded, err := h.engine.Selection(ctx, allMirrorList[0].FileInfo, clientInfo, allMirrorList, cnf)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,8 +263,26 @@ func (h *HTTP) mirrorSelector(ctx *Context, cache *mirrors.Cache, fileInfo *file
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
 
+	cnf := GetConfig()
+
+	var results *mirrors.Results
+	if len(r.URL.Path) <= 1 {
+		results = &mirrors.Results{
+			RepoVersion: filesystem.GetRepoVersionList(),
+		}
+
+		handlerRes(w, r, ctx, results, cnf)
+		return
+	}
+
+	// TODO Compatible with openeuler online website api, temporary solution: edit url path
+	editedUrlPath := r.URL.Path
+	if strings.HasSuffix(editedUrlPath, "/ISO/") {
+		editedUrlPath = editedUrlPath[:len(editedUrlPath)-5]
+	}
+
 	// Sanitize path
-	urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
+	urlPath, err := filesystem.EvaluateFilePath(cnf.Repository, editedUrlPath)
 	if err != nil {
 		if err == filesystem.ErrOutsideRepo {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -339,17 +316,17 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	if _, ok := err.(net.Error); ok || len(mlist) == 0 {
 		log.Errorf("failed to get mirror info, error: %v and mirror size %d", err, len(mlist))
 		/* Handle fallbacks */
-		fallbacks := GetConfig().Fallbacks
+		fallbacks := cnf.Fallbacks
 		if len(fallbacks) > 0 {
 			fallback = true
 			for i, f := range fallbacks {
 				country := ""
-				if strings.ToUpper(f.CountryCode) == "CN" || strings.ToUpper(f.CountryCode) == "CHINA"{
+				if strings.ToUpper(f.CountryCode) == "CN" || strings.ToUpper(f.CountryCode) == "CHINA" {
 					country = "China"
 				}
 				mlist = append(mlist, mirrors.Mirror{
 					ID:            i * -1,
-					Name:          fmt.Sprintf("fallback%d", i),
+					Name:          f.Name,
 					HttpURL:       f.URL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
 					Country:       country,
@@ -366,39 +343,56 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	tempMlist := make([]mirrors.Mirror, len(mlist))
-	for _, ml := range mlist {
-		if ml.CountryCodes == "TWN" || ml.CountryCodes == "TPE" || ml.CountryCodes == "TW"{
-			ml.CountryCodes = "CN"
-			ml.Country = "China"
-		} else if ml.CountryCodes == "HK" ||
-			ml.CountryCodes == "HKSAR" || ml.CountryCodes == "HKG" {
-			ml.CountryCodes = "CN"
-			ml.Country = "China"
-		} else if ml.CountryCodes == "MO" ||
-			ml.CountryCodes == "MC" || ml.CountryCodes == "OMA" {
-			ml.CountryCodes = "CN"
-			ml.Country = "China"
+
+	for i := range mlist {
+		if mlist[i].CountryCodes == "TWN" || mlist[i].CountryCodes == "TPE" || mlist[i].CountryCodes == "TW" {
+			mlist[i].CountryCodes = "CN"
+			mlist[i].Country = "China"
+		} else if mlist[i].CountryCodes == "HK" ||
+			mlist[i].CountryCodes == "HKSAR" || mlist[i].CountryCodes == "HKG" {
+			mlist[i].CountryCodes = "CN"
+			mlist[i].Country = "China"
+		} else if mlist[i].CountryCodes == "MO" ||
+			mlist[i].CountryCodes == "MC" || mlist[i].CountryCodes == "OMA" {
+			mlist[i].CountryCodes = "CN"
+			mlist[i].Country = "China"
 		}
-		tempMlist = append(tempMlist, ml)
 	}
 
-	results := &mirrors.Results{
+	limit := len(mlist)
+	if limit > 5 {
+		limit = 5
+	}
+
+	results = &mirrors.Results{
 		FileInfo:     fileInfo,
-		MirrorList:   mlist,
+		FileTree:     filesystem.GetRepoFileList(urlPath[1:], cnf),
+		MirrorList:   mlist[:limit],
 		ExcludedList: excluded,
 		ClientInfo:   clientInfo,
 		IP:           remoteIP,
 		Fallback:     fallback,
-		LocalJSPath:  GetConfig().LocalJSPath,
+		LocalJSPath:  cnf.LocalJSPath,
 	}
 
+	handlerRes(w, r, ctx, results, cnf)
+
+	if !ctx.IsMirrorlist() {
+		if len(mlist) > 0 {
+			h.stats.CountDownload(mlist[0], fileInfo)
+		}
+	}
+
+	return
+}
+
+func handlerRes(w http.ResponseWriter, r *http.Request, ctx *Context, results *mirrors.Results, cnf *Configuration) {
 	var resultRenderer resultsRenderer
 
 	if ctx.IsMirrorlist() {
 		resultRenderer = &MirrorListRenderer{}
 	} else {
-		switch GetConfig().OutputMode {
+		switch cnf.OutputMode {
 		case "json":
 			resultRenderer = &JSONRenderer{}
 		case "redirect":
@@ -425,12 +419,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), status, results, err)
-		if len(mlist) > 0 {
-			h.stats.CountDownload(mlist[0], fileInfo)
-		}
 	}
-
-	return
 }
 
 // LoadTemplates pre-loads templates from the configured template directory
@@ -723,7 +712,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 			},
 			TZOffset: tzoffset,
 		}
-		if mirror.CountryCodes == "TWN" || mirror.CountryCodes == "TPE" || mirror.CountryCodes == "TW"{
+		if mirror.CountryCodes == "TWN" || mirror.CountryCodes == "TPE" || mirror.CountryCodes == "TW" {
 			mirror.CountryCodes = "CN"
 			mirror.Country = "China"
 		} else if mirror.CountryCodes == "HK" ||

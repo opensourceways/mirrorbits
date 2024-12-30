@@ -4,14 +4,15 @@
 package scan
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
+	"github.com/op/go-logging"
 	. "github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/database"
@@ -19,8 +20,6 @@ import (
 	"github.com/opensourceways/mirrorbits/mirrors"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
-	"github.com/op/go-logging"
 )
 
 var (
@@ -37,15 +36,6 @@ var (
 // Scanner is the interface that all scanners must implement
 type Scanner interface {
 	Scan(url, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error)
-}
-
-type filedata struct {
-	path    string
-	sha1    string
-	sha256  string
-	md5     string
-	size    int64
-	modTime time.Time
 }
 
 type scan struct {
@@ -85,18 +75,8 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		cache:    c,
 	}
 
-	var scanner Scanner
-	switch typ {
-	case core.RSYNC:
-		scanner = &RsyncScanner{
-			scan: s,
-		}
-	case core.FTP:
-		scanner = &FTPScanner{
-			scan: s,
-		}
-	default:
-		panic(fmt.Sprintf("Unknown scanner"))
+	scanner := &HttpScanner{
+		scan: s,
 	}
 
 	// Get the mirror name
@@ -122,7 +102,6 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	s.setLastSync(conn, id, typ, 0, false)
 
-	mirrors.PushLog(r, mirrors.NewLogScanStarted(id, typ))
 	defer func(err *error) {
 		if err != nil && *err != nil {
 			mirrors.PushLog(r, mirrors.NewLogError(id, *err))
@@ -138,16 +117,23 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	conn.Send("DEL", s.filesTmpKey)
 
 	var precision core.Precision
-	precision, err = scanner.Scan(url, name, conn, stop)
-	if err != nil {
-		// Discard MULTI
-		s.ScannerDiscard()
 
-		// Remove the temporary key
-		conn.Do("DEL", s.filesTmpKey)
-
-		log.Errorf("[%s] %s", name, err.Error())
-		return nil, err
+	repoVersionList := filesystem.GetSelectorList()
+	for _, p := range repoVersionList {
+		if len(p) == 0 {
+			continue
+		}
+		t1 := time.Now()
+		precision1, filePath, err := scanner.Scan(url, name, p, stop)
+		precision = precision1
+		log.Infof("[%s] [%s] scan files cost time = %4.8f s \n", name, p[0].Dir, time.Since(t1).Seconds())
+		if err != nil {
+			log.Errorf("[%s] error: %s", name, err.Error())
+			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", filePath), id)
+			conn.Send("DEL", fmt.Sprintf("FILEINFO_%d_%s", id, filePath))
+			// Publish update
+			database.SendPublish(conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", id, filePath))
+		}
 	}
 
 	// Exec multi
@@ -213,32 +199,25 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		TZOffsetMs:   tzoffset,
 	}
 
-	mirrors.PushLog(r, mirrors.NewLogScanCompleted(
-		res.MirrorID,
-		res.FilesIndexed,
-		res.KnownIndexed,
-		res.Removed,
-		res.TZOffsetMs))
-
 	return res, nil
 }
 
-func (s *scan) ScannerAddFile(f filedata) {
+func (s *scan) ScannerAddFile(f filesystem.FileData) {
 	s.count++
 
 	// Add all the files to a temporary key
-	s.conn.Send("SADD", s.filesTmpKey, f.path)
+	s.conn.Send("SADD", s.filesTmpKey, f.Path)
 
 	// Mark the file as being supported by this mirror
-	rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
+	rk := fmt.Sprintf("FILEMIRRORS_%s", f.Path)
 	s.conn.Send("SADD", rk, s.mirrorid)
 
 	// Save the size of the current file found on this mirror
-	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
-	s.conn.Send("HMSET", ik, "size", f.size, "modTime", f.modTime)
+	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.Path)
+	s.conn.Send("HMSET", ik, "size", f.Size, "modTime", f.ModTime)
 
 	// Publish update
-	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
+	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.Path))
 }
 
 func (s *scan) ScannerDiscard() {
@@ -390,61 +369,30 @@ type sourcescanner struct {
 }
 
 // Walk inside the source/reference repository
-func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
-	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 || strings.HasPrefix(f.Name(), "."){
-		return nil, nil
+func (s *sourcescanner) walkSource(conn redis.Conn, d *filesystem.FileData) *filesystem.FileData {
+	if d == nil {
+		return nil
 	}
 
-	d := new(filedata)
-	d.path = path[len(GetConfig().Repository):]
-	d.size = f.Size()
-	d.modTime = f.ModTime()
-
 	// Get the previous file properties
-	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
+	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.Path), "size", "modTime", "sha256"))
 	if err != nil && err != redis.ErrNil {
-		return nil, err
+		log.Warningf("%s: get failed from redis: %s", d.Path, err.Error())
+		return nil
 	} else if len(properties) < 5 {
 		// This will force a rehash
 		properties = make([]string, 5)
 	}
 
 	size, _ := strconv.ParseInt(properties[0], 10, 64)
-	modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", properties[1])
-	sha1 := properties[2]
-	sha256 := properties[3]
-	md5 := properties[4]
+	modTime, _ := time.Parse(time.RFC1123, properties[1])
+	sha256 := properties[2]
 
-	rehash = rehash ||
-		(GetConfig().Hashes.SHA1 && len(sha1) == 0) ||
-		(GetConfig().Hashes.SHA256 && len(sha256) == 0) ||
-		(GetConfig().Hashes.MD5 && len(md5) == 0)
-
-	if rehash || size != d.size || !modTime.Equal(d.modTime) {
-		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
-		if err != nil {
-			log.Warningf("%s: hashing failed: %s", d.path, err.Error())
-		} else {
-			d.sha1 = h.Sha1
-			d.sha256 = h.Sha256
-			d.md5 = h.Md5
-			if len(d.sha1) > 0 {
-				log.Infof("%s: SHA1 %s", d.path, d.sha1)
-			}
-			if len(d.sha256) > 0 {
-				log.Infof("%s: SHA256 %s", d.path, d.sha256)
-			}
-			if len(d.md5) > 0 {
-				log.Infof("%s: MD5 %s", d.path, d.md5)
-			}
-		}
-	} else {
-		d.sha1 = sha1
-		d.sha256 = sha256
-		d.md5 = md5
+	if size != d.Size || !modTime.Equal(d.ModTime) || d.Sha256 != sha256 {
+		log.Infof("[Old] %s: SIZE = %s, MODTIME = %s, SHA256 %s", d.Path, properties[0], modTime.String(), d.Sha256)
+		log.Infof("[New] %s: SIZE = %s, MODTIME = %s, SHA256 %s", d.Path, strconv.FormatInt(d.Size, 10), d.ModTime.String(), d.Sha256)
 	}
-
-	return d, nil
+	return d
 }
 
 // ScanSource starts a scan of the local repository
@@ -458,31 +406,68 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		return conn.Err()
 	}
 
-	sourceFiles := make([]*filedata, 0, 1000)
+	sourceFiles := make([]*filesystem.FileData, 0, 1024)
 
 	//TODO lock atomically inside redis to avoid two simultaneous scan
-
-	if _, err := os.Stat(GetConfig().Repository); os.IsNotExist(err) {
-		return fmt.Errorf("%s: No such file or directory", GetConfig().Repository)
+	cnf := GetConfig()
+	if _, err = os.Stat(cnf.Repository); os.IsNotExist(err) {
+		return fmt.Errorf("%s: No such file or directory", cnf.Repository)
+	}
+	repoFileText := cnf.RepositoryFileListText
+	if _, err = os.Stat(repoFileText); err != nil {
+		return fmt.Errorf("%s: No such file or directory", repoFileText)
 	}
 
+	// open the file
+	file, err := os.Open(repoFileText)
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	// handle errors while opening
+	if err != nil {
+		return fmt.Errorf("cannot open the file: %s", repoFileText)
+	}
+	fileScanner := bufio.NewScanner(file)
+	fileScanner.Scan()
+	x, y, z := 0, 0, 0
+	if fileScanner.Scan() {
+		line := fileScanner.Bytes()
+		z = len(line) // 47
+		// drwxrwxrwx          4,096 2024/08/08 11:01:29 .
+		//                           x                   y
+		y = z - 1
+		x = z - 21
+	}
 	log.Info("[source] Scanning the filesystem...")
-	err = filepath.Walk(GetConfig().Repository, func(path string, f os.FileInfo, err error) error {
-		fd, err := s.walkSource(conn, path, f, forceRehash, err)
-		if err != nil {
-			return err
+	releaseVersion := cnf.PreReleaseVersion
+	length := len(releaseVersion)
+	// read line by line
+	for fileScanner.Scan() {
+		line := fileScanner.Bytes()
+		if len(line) <= y {
+			continue
 		}
-		if fd != nil {
-			sourceFiles = append(sourceFiles, fd)
+		path := string(line[y:])
+		if length > 0 && len(path) >= length && releaseVersion == path[:length] {
+			continue
 		}
-		return nil
-	})
+		if filesystem.Filter(path) && len(line) >= z {
+			fd := filesystem.BuildFileTree(path, line[:x-1], line[x:y-1], cnf)
+			fd = s.walkSource(conn, fd)
+			if fd != nil {
+				sourceFiles = append(sourceFiles, fd)
+			}
+		}
+	}
+	if err = fileScanner.Err(); err != nil {
+		log.Errorf("Error while reading file: %s", err)
+	}
+
+	filesystem.UpdateFileTree(cnf.RepositoryFilter)
 
 	if utils.IsStopped(stop) {
 		return ErrScanAborted
-	}
-	if err != nil {
-		return err
 	}
 	log.Info("[source] Indexing the files...")
 
@@ -513,7 +498,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 	// Add all the files to a temporary key
 	count := 0
 	for _, e := range sourceFiles {
-		conn.Send("SADD", "FILES_TMP", e.path)
+		conn.Send("SADD", "FILES_TMP", e.Path)
 		count++
 	}
 
@@ -528,15 +513,13 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 	// Create/Update the files' hash keys with the fresh infos
 	conn.Send("MULTI")
 	for _, e := range sourceFiles {
-		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
-			"size", e.size,
-			"modTime", e.modTime,
-			"sha1", e.sha1,
-			"sha256", e.sha256,
-			"md5", e.md5)
+		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.Path),
+			"size", e.Size,
+			"modTime", e.ModTime,
+			"sha256", e.Sha256)
 
 		// Publish update
-		database.SendPublish(conn, database.FILE_UPDATE, e.path)
+		database.SendPublish(conn, database.FILE_UPDATE, e.Path)
 	}
 
 	// Remove old keys
@@ -562,4 +545,3 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	return nil
 }
-

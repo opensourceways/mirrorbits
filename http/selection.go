@@ -21,14 +21,14 @@ import (
 type mirrorSelection interface {
 	// Selection must return an ordered list of selected mirror,
 	// a list of rejected mirrors and and an error code.
-	Selection(*Context, *filesystem.FileInfo, network.GeoIPRecord, mirrors.Mirrors) (mirrors.Mirrors, mirrors.Mirrors, error)
+	Selection(*Context, *filesystem.FileInfo, network.GeoIPRecord, mirrors.Mirrors, *Configuration) (mirrors.Mirrors, mirrors.Mirrors, error)
 }
 
 // DefaultEngine is the default algorithm used for mirror selection
 type DefaultEngine struct{}
 
 // Selection returns an ordered list of selected mirror, a list of rejected mirrors and and an error code
-func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, pMirrors mirrors.Mirrors) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
+func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, pMirrors mirrors.Mirrors, cnf *Configuration) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
 	mlist = pMirrors
 	// Filter
 	safeIndex := 0
@@ -53,7 +53,7 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 			}
 			goto discard
 		}
-		if GetConfig().SchemaStrictMatch {
+		if cnf.SchemaStrictMatch {
 			if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
 				m.ExcludeReason = "Not HTTPS"
 				goto discard
@@ -71,7 +71,7 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 			}
 			if !m.FileInfo.ModTime.IsZero() {
 				mModTime := m.FileInfo.ModTime
-				if GetConfig().FixTimezoneOffsets {
+				if cnf.FixTimezoneOffsets {
 					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
 				}
 				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
@@ -154,99 +154,25 @@ func (h DefaultEngine) Selection(ctx *Context, fileInfo *filesystem.FileInfo, cl
 	// - mirrors found in a 1.5x (configurable) range from the closest mirror
 	// - mirrors targeting the given country (as primary or secondary)
 	// - mirrors being in the same AS number
-	totalScore := 0
 	baseScore := int(farthestMirror)
-	weights := map[int]int{}
 	for i := 0; i < len(mlist); i++ {
 		m := &mlist[i]
-
-		m.ComputedScore = baseScore - int(m.Distance) + 1
-
-		if m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
-			score := (float32(baseScore) - m.Distance)
-			if !utils.IsPrimaryCountry(clientInfo, m.CountryFields) {
-				score /= 2
-			}
-			m.ComputedScore += int(score)
-		} else if utils.IsPrimaryCountry(clientInfo, m.CountryFields) {
-			m.ComputedScore += int(float32(baseScore) - (m.Distance * 5))
-		} else if utils.IsAdditionalCountry(clientInfo, m.CountryFields) {
-			m.ComputedScore += int(float32(baseScore) - closestMirror)
+		var countryScore, netRateScore, distanceScore int
+		distanceScore = baseScore - int(m.Distance) + 1
+		netRateScore = m.Score
+		if utils.IsPrimaryCountry(clientInfo, m.CountryFields) {
+			countryScore = 1
 		}
+		m.ComputedScore[0] = countryScore
+		m.ComputedScore[1] = netRateScore
+		m.ComputedScore[2] = distanceScore
 
-		if m.Asnum == clientInfo.ASNum {
-			m.ComputedScore += baseScore / 2
-		}
-
-		floatingScore := float64(m.ComputedScore) + (float64(m.ComputedScore) * (float64(m.Score) / 100)) + 0.5
-
-		// The minimum allowed score is 1
-		m.ComputedScore = int(math.Max(floatingScore, 1))
-
-		if m.ComputedScore > baseScore {
-			// The weight must always be > 0 to not break the randomization below
-			totalScore += m.ComputedScore - baseScore
-			weights[m.ID] = m.ComputedScore - baseScore
-			log.Infof("mirror %s is chosen for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
-		} else {
-			log.Infof("mirror %s is abandoned for request file %s, compute score %d and base score %d", m.Name, fileInfo.Path, m.ComputedScore, baseScore)
-		}
+		log.Infof("mirror %s is chosen for request file %s, compute score %d, base score %d, country score %d, netRate score %d, distance score %d",
+			m.Name, fileInfo.Path, m.ComputedScore, baseScore, countryScore, netRateScore, distanceScore)
 	}
-
-	// Get the final number of mirrors selected for weight distribution
-	selected := len(weights)
 
 	// Sort mirrors by computed score
 	sort.Sort(mirrors.ByComputedScore{Mirrors: mlist})
 
-	if selected > 1 {
-
-		if ctx.IsMirrorlist() {
-			// Don't reorder the results, just set the percentage
-			for i := 0; i < selected; i++ {
-				id := mlist[i].ID
-				for j := 0; j < len(mlist); j++ {
-					if mlist[j].ID == id {
-						mlist[j].Weight = float32(float64(weights[id]) * 100 / float64(totalScore))
-						break
-					}
-				}
-			}
-		} else {
-			// Randomize the order of the selected mirrors considering their weights
-			weightedMirrors := make([]mirrors.Mirror, selected)
-			rest := totalScore
-			for i := 0; i < selected; i++ {
-				var id int
-				rv := rand.Int31n(int32(rest))
-				s := 0
-				for k, v := range weights {
-					s += v
-					if int32(s) > rv {
-						id = k
-						break
-					}
-				}
-				for _, m := range mlist {
-					if m.ID == id {
-						m.Weight = float32(float64(weights[id]) * 100 / float64(totalScore))
-						weightedMirrors[i] = m
-						break
-					}
-				}
-				rest -= weights[id]
-				delete(weights, id)
-			}
-
-			// Replace the head of the list by its reordered counterpart
-			mlist = append(weightedMirrors, mlist[selected:]...)
-
-			// Reduce the number of mirrors to return
-			v := math.Min(math.Min(5, float64(selected)), float64(len(mlist)))
-			mlist = mlist[:int(v)]
-		}
-	} else if selected == 1 && len(mlist) > 0 {
-		mlist[0].Weight = 100
-	}
 	return
 }

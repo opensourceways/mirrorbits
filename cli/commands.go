@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"golang.org/x/term"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
 	"github.com/opensourceways/mirrorbits/core"
 	"github.com/opensourceways/mirrorbits/filesystem"
@@ -38,7 +38,7 @@ import (
 
 const (
 	commentSeparator  = "##### Comments go below this line #####"
-	defaultRPCTimeout = time.Second * 10
+	defaultRPCTimeout = time.Second * 60
 )
 
 var (
@@ -67,7 +67,7 @@ func ParseCommands(args ...string) error {
 		}
 		if len(c.creds.Password) == 0 && core.RPCAskPass {
 			fmt.Print("Password: ")
-			passwd, err := gopass.GetPasswdMasked()
+			passwd, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				return err
 			}
@@ -327,14 +327,14 @@ func (c *cli) CmdAdd(args ...string) error {
 	defer cancel()
 	m, err := rpc.MirrorToRPC(mirror)
 	if err != nil {
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error1:", err)
 	}
 	reply, err := client.AddMirror(ctx, m)
 	if err != nil {
 		if err.Error() == rpc.ErrNameAlreadyTaken.Error() {
 			log.Fatalf("Mirror %s already exists!\n", mirror.Name)
 		}
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error2:", err)
 		return err
 	}
 
@@ -624,12 +624,12 @@ func (c *cli) CmdEdit(args ...string) error {
 		ID: int32(id),
 	})
 	if err != nil {
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error3:", err)
 		return err
 	}
 	mirror, err := rpc.MirrorFromRPC(rpcm)
 	if err != nil {
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error4:", err)
 		return err
 	}
 	if *mirrorFile != "" {
@@ -661,12 +661,12 @@ func (c *cli) CmdEdit(args ...string) error {
 		defer cancel()
 		m, err := rpc.MirrorToRPC(mirror)
 		if err != nil {
-			log.Fatal("edit error:", err)
+			log.Fatal("edit error5:", err)
 			return err
 		}
 		reply, err := client.UpdateMirror(ctx, m)
 		if err != nil {
-			log.Fatal("edit error:", err)
+			log.Fatal("edit error6:", err)
 			return err
 		}
 		if len(reply.Diff) > 0 {
@@ -769,7 +769,7 @@ reopen:
 	defer cancel()
 	m, err := rpc.MirrorToRPC(mirror)
 	if err != nil {
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error7:", err)
 	}
 	reply, err := client.UpdateMirror(ctx, m)
 	if err != nil {
@@ -781,7 +781,7 @@ reopen:
 				return nil
 			}
 		}
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error8:", err)
 	}
 
 	if len(reply.Diff) > 0 {
@@ -813,11 +813,11 @@ func (c *cli) CmdShow(args ...string) error {
 		ID: int32(id),
 	})
 	if err != nil {
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error9:", err)
 	}
 	mirror, err := rpc.MirrorFromRPC(rpcm)
 	if err != nil {
-		log.Fatal("edit error:", err)
+		log.Fatal("edit error10:", err)
 	}
 
 	// Generate a yaml configuration string from the struct

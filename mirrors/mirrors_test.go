@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/network"
 	. "github.com/opensourceways/mirrorbits/testing"
-	"github.com/gomodule/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 )
 
@@ -319,22 +319,22 @@ func TestByComputedScore_Less(t *testing.T) {
 		Mirror{
 			ID:            1,
 			Name:          "M1",
-			ComputedScore: 50,
+			ComputedScore: [3]int{1, 100, 2},
 		},
 		Mirror{
 			ID:            2,
 			Name:          "M2",
-			ComputedScore: 0,
+			ComputedScore: [3]int{0, 90, 3},
 		},
 		Mirror{
 			ID:            3,
 			Name:          "M3",
-			ComputedScore: 2500,
+			ComputedScore: [3]int{1, 100, 4},
 		},
 		Mirror{
 			ID:            4,
 			Name:          "M4",
-			ComputedScore: 21,
+			ComputedScore: [3]int{1, 50, 32},
 		},
 	}
 

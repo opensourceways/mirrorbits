@@ -10,11 +10,11 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/opensourceways/mirrorbits/database"
 	"github.com/opensourceways/mirrorbits/filesystem"
 	"github.com/opensourceways/mirrorbits/network"
 	"github.com/opensourceways/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
 )
 
 // Cache implements a local caching mechanism of type LRU for content available in the
@@ -146,16 +146,14 @@ func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
 	defer rconn.Close()
 	f.Path = path // Path is not stored in the object instance in redis
 
-	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1", "sha256", "md5"))
+	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha256"))
 	if err != nil {
 		return
 	}
 
 	f.Size, _ = strconv.ParseInt(reply[0], 10, 64)
-	f.ModTime, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", reply[1])
-	f.Sha1 = reply[2]
-	f.Sha256 = reply[3]
-	f.Md5 = reply[4]
+	f.ModTime, _ = time.Parse(time.RFC1123, reply[1])
+	f.Sha256 = reply[2]
 	c.fiCache.Set(path, &fileInfoValue{value: f})
 	return
 }
@@ -167,7 +165,9 @@ func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors
 	v, ok := c.fmCache.Get(path)
 	if ok {
 		mirrorsIDs = v.(*fileMirrorValue).value
-	} else {
+	}
+
+	if len(mirrorsIDs) == 0 {
 		mirrorsIDs, err = c.fetchFileMirrors(path)
 		if err != nil {
 			return
@@ -267,7 +267,7 @@ func (c *Cache) fetchFileInfoMirror(id int, path string) (f filesystem.FileInfo,
 	defer rconn.Close()
 	f.Path = path // Path is not stored in the object instance in redis
 
-	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILEINFO_%d_%s", id, path), "size", "modTime", "sha1", "sha256", "md5"))
+	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILEINFO_%d_%s", id, path), "size", "modTime", "sha256"))
 	if err != nil {
 		return
 	}
@@ -276,10 +276,8 @@ func (c *Cache) fetchFileInfoMirror(id int, path string) (f filesystem.FileInfo,
 	// all other fields are left blank.
 
 	f.Size, _ = strconv.ParseInt(reply[0], 10, 64)
-	f.ModTime, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", reply[1])
-	f.Sha1 = reply[2]
-	f.Sha256 = reply[3]
-	f.Md5 = reply[4]
+	f.ModTime, _ = time.Parse(time.DateTime, reply[1])
+	f.Sha256 = reply[2]
 
 	c.fimCache.Set(fmt.Sprintf("%d|%s", id, path), &fileInfoValue{value: f})
 	return

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/opensourceways/mirrorbits/core"
 	"github.com/op/go-logging"
+	"github.com/opensourceways/mirrorbits/core"
 	"gopkg.in/yaml.v2"
 )
 
@@ -43,10 +43,10 @@ func defaultConfig() Configuration {
 		LogDir:                 "",
 		TraceFileLocation:      "",
 		GeoipDatabasePath:      "/usr/share/GeoIP/",
-		ConcurrentSync:         5,
-		ScanInterval:           30,
-		CheckInterval:          1,
-		RepositoryScanInterval: 5,
+		ConcurrentSync:         50,
+		ScanInterval:           60,
+		CheckInterval:          30,
+		RepositoryScanInterval: 50,
 		MaxLinkHeaders:         10,
 		FixTimezoneOffsets:     false,
 		Hashes: hashing{
@@ -65,42 +65,68 @@ func defaultConfig() Configuration {
 
 // Configuration contains all the option available in the yaml file
 type Configuration struct {
-	Repository              string     `yaml:"Repository"`
-	Templates               string     `yaml:"Templates"`
-	LocalJSPath             string     `yaml:"LocalJSPath"`
-	OutputMode              string     `yaml:"OutputMode"`
-	ListenAddress           string     `yaml:"ListenAddress"`
-	Gzip                    bool       `yaml:"Gzip"`
-	RedisAddress            string     `yaml:"RedisAddress"`
-	RedisPassword           string     `yaml:"RedisPassword"`
-	RedisDB                 int        `yaml:"RedisDB"`
-	LogDir                  string     `yaml:"LogDir"`
-	TraceFileLocation       string     `yaml:"TraceFileLocation"`
-	GeoipDatabasePath       string     `yaml:"GeoipDatabasePath"`
-	ConcurrentSync          int        `yaml:"ConcurrentSync"`
-	ScanInterval            int        `yaml:"ScanInterval"`
-	CheckInterval           int        `yaml:"CheckInterval"`
-	RepositoryScanInterval  int        `yaml:"RepositoryScanInterval"`
-	MaxLinkHeaders          int        `yaml:"MaxLinkHeaders"`
-	FixTimezoneOffsets      bool       `yaml:"FixTimezoneOffsets"`
-	Hashes                  hashing    `yaml:"Hashes"`
-	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
-	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
-	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
-	Fallbacks               []fallback `yaml:"Fallbacks"`
-	SchemaStrictMatch       bool       `yaml:"SchemaStrictMatch"`
+	Repository                string     `yaml:"Repository"`
+	RepositoryFileListText    string     `yaml:"RepositoryFileListText"`
+	RepositorySourcesLockFile string     `yaml:"RepositorySourcesLockFile"`
+	Templates                 string     `yaml:"Templates"`
+	LocalJSPath               string     `yaml:"LocalJSPath"`
+	OutputMode                string     `yaml:"OutputMode"`
+	ListenAddress             string     `yaml:"ListenAddress"`
+	Gzip                      bool       `yaml:"Gzip"`
+	RedisAddress              string     `yaml:"RedisAddress"`
+	RedisPassword             string     `yaml:"RedisPassword"`
+	RedisDB                   int        `yaml:"RedisDB"`
+	LogDir                    string     `yaml:"LogDir"`
+	TraceFileLocation         string     `yaml:"TraceFileLocation"`
+	GeoipDatabasePath         string     `yaml:"GeoipDatabasePath"`
+	ConcurrentSync            int        `yaml:"ConcurrentSync"`
+	ScanInterval              int        `yaml:"ScanInterval"`
+	CheckInterval             int        `yaml:"CheckInterval"`
+	RepositoryScanInterval    int        `yaml:"RepositoryScanInterval"`
+	MaxLinkHeaders            int        `yaml:"MaxLinkHeaders"`
+	FixTimezoneOffsets        bool       `yaml:"FixTimezoneOffsets"`
+	Hashes                    hashing    `yaml:"Hashes"`
+	DisallowRedirects         bool       `yaml:"DisallowRedirects"`
+	WeightDistributionRange   float32    `yaml:"WeightDistributionRange"`
+	DisableOnMissingFile      bool       `yaml:"DisableOnMissingFile"`
+	Fallbacks                 []Fallback `yaml:"Fallbacks"`
+	SchemaStrictMatch         bool       `yaml:"SchemaStrictMatch"`
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
 	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
 
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
+
+	PreReleaseVersion   string           `yaml:"PreReleaseVersion"`
+	RepositoryFilter    DirFilter        `yaml:"RepositoryFilter"`
+	RepoFileIntoVersion []FileVersionMap `yaml:"RepoFileIntoVersion"`
 }
 
-type fallback struct {
+type ParticularFileMapping struct {
+	VersionName  string   `yaml:"VersionName"`
+	ScenarioName string   `yaml:"ScenarioName"`
+	ArchName     string   `yaml:"ArchName"`
+	SourcePath   []string `yaml:"SourcePath"`
+	SHA256List   []string `yaml:"SHA256List"`
+}
+
+type DirFilter struct {
+	SecondDir      []string                `yaml:"SecondDir"`
+	ThirdDir       []string                `yaml:"ThirdDir"`
+	ParticularFile []ParticularFileMapping `yaml:"ParticularFileMapping"`
+}
+
+type FileVersionMap struct {
+	FilePath string `yaml:"FilePath"`
+	Version  string `yaml:"Version"`
+}
+
+type Fallback struct {
 	URL           string `yaml:"URL"`
 	CountryCode   string `yaml:"CountryCode"`
 	ContinentCode string `yaml:"ContinentCode"`
+	Name          string `yaml:"Name"`
 }
 
 type sentinels struct {
@@ -254,7 +280,7 @@ func testSentinelsEq(a, b []sentinels) bool {
 	return true
 }
 
-//DUPLICATE
+// DUPLICATE
 func isInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {

@@ -4,12 +4,11 @@
 package http
 
 import (
+	"compress/gzip"
+	. "github.com/opensourceways/mirrorbits/config"
 	"io"
 	"net/http"
 	"strings"
-
-	. "github.com/opensourceways/mirrorbits/config"
-	"github.com/youtube/vitess/go/cgzip"
 )
 
 type gzipResponseWriter struct {
@@ -36,7 +35,7 @@ func NewGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Encoding", "gzip")
-		gz, _ := cgzip.NewWriterLevel(w, cgzip.Z_BEST_SPEED)
+		gz, _ := gzip.NewWriterLevel(w, 1)
 		defer gz.Close()
 		fn(&gzipResponseWriter{Writer: gz, ResponseWriter: w}, r)
 	}
