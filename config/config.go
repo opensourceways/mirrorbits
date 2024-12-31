@@ -123,10 +123,11 @@ type FileVersionMap struct {
 }
 
 type Fallback struct {
-	URL           string `yaml:"URL"`
-	CountryCode   string `yaml:"CountryCode"`
-	ContinentCode string `yaml:"ContinentCode"`
-	Name          string `yaml:"Name"`
+	URL              string `yaml:"URL"`
+	CountryCode      string `yaml:"CountryCode"`
+	ContinentCode    string `yaml:"ContinentCode"`
+	Name             string `yaml:"Name"`
+	NetworkBandwidth int32  `yaml:"NetworkBandwidth"`
 }
 
 type sentinels struct {

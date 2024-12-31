@@ -325,13 +325,14 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 					country = "China"
 				}
 				mlist = append(mlist, mirrors.Mirror{
-					ID:            i * -1,
-					Name:          f.Name,
-					HttpURL:       f.URL,
-					CountryCodes:  strings.ToUpper(f.CountryCode),
-					Country:       country,
-					CountryFields: []string{strings.ToUpper(f.CountryCode)},
-					ContinentCode: strings.ToUpper(f.ContinentCode)})
+					ID:               i * -1,
+					Name:             f.Name,
+					HttpURL:          f.URL,
+					CountryCodes:     strings.ToUpper(f.CountryCode),
+					Country:          country,
+					CountryFields:    []string{strings.ToUpper(f.CountryCode)},
+					NetworkBandwidth: f.NetworkBandwidth,
+					ContinentCode:    strings.ToUpper(f.ContinentCode)})
 			}
 			sort.Sort(mirrors.ByRank{Mirrors: mlist, ClientInfo: clientInfo})
 		} else {
