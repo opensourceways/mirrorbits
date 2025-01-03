@@ -3,6 +3,7 @@
 package filesystem
 
 import (
+	"github.com/op/go-logging"
 	"github.com/opensourceways/mirrorbits/config"
 	"github.com/opensourceways/mirrorbits/utils"
 	"os"
@@ -45,6 +46,8 @@ var (
 		SelectorMap: make(map[string]*LayerFile, RepoVersionNum),
 		Root:        LayerFile{},
 	}
+
+	log = logging.MustGetLogger("filesystem")
 )
 
 // website display file information structure
@@ -437,28 +440,34 @@ func (ft *LayerFile) appendDir(flag bool, t []DisplayFile) []DisplayFile {
 	})
 }
 
-func (ft *LayerFile) dfsEveryFile() {
+func (ft *LayerFile) dfsEveryFile(file *LayerFile) {
 	if ft == nil {
 		return
 	}
 
 	subLen := len(ft.Sub)
 	if subLen == 0 {
-		selectorList = append(selectorList, ft)
+		if file == nil {
+			selectorList = append(selectorList, ft)
+		} else {
+			if ft.ModTime.After(file.ModTime) {
+				*file = *ft
+			}
+		}
 		return
 	}
 
 	if subLen == 1 {
-		ft.Sub[0].dfsEveryFile()
+		ft.Sub[0].dfsEveryFile(file)
 		return
 	}
 
 	for _, p := range ft.Sub {
-		p.dfsEveryFile()
+		p.dfsEveryFile(file)
 	}
 }
 
-func (ft *LayerFile) dfsDictionaryOrderLastFile() *LayerFile {
+func (ft *LayerFile) dfsFirstFile() *LayerFile {
 	if ft == nil {
 		return nil
 	}
@@ -467,16 +476,12 @@ func (ft *LayerFile) dfsDictionaryOrderLastFile() *LayerFile {
 		return ft
 	}
 	if subLen == 1 {
-		return ft.Sub[0].dfsDictionaryOrderLastFile()
+		return ft.Sub[0].dfsFirstFile()
 	}
-
-	sort.SliceStable(ft.Sub, func(i, j int) bool {
-		return ft.Sub[i].Name > ft.Sub[j].Name
-	})
 
 	for _, p := range ft.Sub {
 		if !strings.HasSuffix(p.Name, FileExtensionSha256) {
-			if ans := p.dfsDictionaryOrderLastFile(); ans != nil {
+			if ans := p.dfsFirstFile(); ans != nil {
 				return ans
 			}
 		}
@@ -525,22 +530,33 @@ func collectRepoVersionList(filter config.DirFilter) {
 			})
 
 			// select some files to do check mirror
+			log.Info("[collect file] repo version is " + v.Name)
 			p := fileTree.SelectorMap[v.Name]
 			if p == nil {
 				continue
 			}
+			if len(p.Sub) != 0 {
+				file := p.dfsFirstFile()
+				p.dfsEveryFile(file)
+				if file != nil {
+					p = file
+				}
+			}
+			log.Info("[collect file] selecting file is " + p.Name)
 			selectorList = append(selectorList, p)
 			selectDir := selectEveryScenarioArchDir(v.Name, scenario, arch)
 			if p.ModTime.After(time.Now().AddDate(0, -7, 0)) {
 				// the long-term maintenance repo version, select every file to check exist or not in the mirror website
 				for _, p1 := range selectDir {
-					p1.dfsEveryFile()
+					p1.dfsEveryFile(nil)
 				}
 			} else {
 				// the stopped maintenance repo version, select some file to check exist or not in the mirror website
 				for _, p2 := range selectDir {
-					if selectFile := p2.dfsDictionaryOrderLastFile(); selectFile != nil {
-						selectorList = append(selectorList, selectFile)
+					file := p.dfsFirstFile()
+					p2.dfsEveryFile(file)
+					if file != nil {
+						selectorList = append(selectorList, file)
 					}
 				}
 			}

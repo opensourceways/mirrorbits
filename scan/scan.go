@@ -379,13 +379,16 @@ func (s *sourcescanner) walkSource(conn redis.Conn, d *filesystem.FileData) *fil
 	if err != nil && err != redis.ErrNil {
 		log.Warningf("%s: get failed from redis: %s", d.Path, err.Error())
 		return nil
-	} else if len(properties) < 5 {
+	} else if len(properties) < 3 {
 		// This will force a rehash
 		properties = make([]string, 5)
 	}
 
 	size, _ := strconv.ParseInt(properties[0], 10, 64)
-	modTime, _ := time.Parse(time.RFC1123, properties[1])
+	if len(properties[1]) > len(time.DateTime) {
+		properties[1] = properties[1][:len(time.DateTime)]
+	}
+	modTime, _ := time.Parse(time.DateTime, properties[1])
 	sha256 := properties[2]
 
 	if size != d.Size || !modTime.Equal(d.ModTime) || d.Sha256 != sha256 {
