@@ -666,6 +666,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	for _, id := range mirrorsIDs {
 		mirror, err := h.cache.GetMirror(id)
 		if err != nil {
+			log.Errorf("mirror [%d] occurred %s", id, err.Error())
 			continue
 		}
 		// test
