@@ -315,33 +315,202 @@ func TestByRank_Less(t *testing.T) {
 }
 
 func TestByComputedScore_Less(t *testing.T) {
+	// 评分相同
 	m := Mirrors{
 		Mirror{
 			ID:            1,
 			Name:          "M1",
-			ComputedScore: [3]int{1, 100, 2},
+			ComputedScore: [3]int{1, 100, 1},
 		},
 		Mirror{
 			ID:            2,
 			Name:          "M2",
-			ComputedScore: [3]int{0, 90, 3},
+			ComputedScore: [3]int{1, 100, 1},
+		},
+	}
+	sort.Sort(ByComputedScore{m})
+	if !matchingMirrorOrder(m, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 > M2 网速、距离评分相同
+	m1 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{1, 100, 1},
 		},
 		Mirror{
-			ID:            3,
-			Name:          "M3",
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 1},
+		},
+	}
+	sort.Sort(ByComputedScore{m1})
+	if !matchingMirrorOrder(m1, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 < M2 网速、距离评分相同
+	m2 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{0, 100, 1},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{1, 100, 1},
+		},
+	}
+	sort.Sort(ByComputedScore{m2})
+	if !matchingMirrorOrder(m2, []int{2, 1}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M2, M1", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 > M2, 网速评分 M1 < M2, 距离评分相同
+	m3 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{1, 10, 1},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 1},
+		},
+	}
+	sort.Sort(ByComputedScore{m3})
+	if !matchingMirrorOrder(m3, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 > M2, 网速评分 M1 < M2, 距离评分 M1 < M2
+	m4 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{1, 10, 1},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 2},
+		},
+	}
+	sort.Sort(ByComputedScore{m4})
+	if !matchingMirrorOrder(m4, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 = M2, 网速评分 M1 < M2, 距离评分 M1 > M2
+	m5 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{0, 10, 3},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 2},
+		},
+	}
+	sort.Sort(ByComputedScore{m5})
+	if !matchingMirrorOrder(m5, []int{2, 1}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M2, M1", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 = M2, 网速评分 M1 < M2, 距离评分 M1 = M2
+	m6 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{0, 10, 3},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 3},
+		},
+	}
+	sort.Sort(ByComputedScore{m6})
+	if !matchingMirrorOrder(m6, []int{2, 1}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M2, M1", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 = M2, 网速评分 M1 > M2, 距离评分 M1 < M2
+	m7 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{0, 100, 3},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 10, 4},
+		},
+	}
+	sort.Sort(ByComputedScore{m7})
+	if !matchingMirrorOrder(m7, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 = M2, 网速评分 M1 = M2, 距离评分 M1 < M2
+	m8 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{0, 100, 3},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 4},
+		},
+	}
+	sort.Sort(ByComputedScore{m8})
+	if !matchingMirrorOrder(m8, []int{2, 1}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M2, M1", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 = M2, 网速评分 M1 = M2, 距离评分 M1 = M2
+	m9 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
+			ComputedScore: [3]int{0, 100, 3},
+		},
+		Mirror{
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{0, 100, 3},
+		},
+	}
+	sort.Sort(ByComputedScore{m9})
+	if !matchingMirrorOrder(m9, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
+	}
+
+	// 国家评分 M1 = M2, 网速评分 M1 = M2, 距离评分 M1 > M2
+	m10 := Mirrors{
+		Mirror{
+			ID:            1,
+			Name:          "M1",
 			ComputedScore: [3]int{1, 100, 4},
 		},
 		Mirror{
-			ID:            4,
-			Name:          "M4",
-			ComputedScore: [3]int{1, 50, 32},
+			ID:            2,
+			Name:          "M2",
+			ComputedScore: [3]int{1, 100, 3},
 		},
 	}
-
-	sort.Sort(ByComputedScore{m})
-
-	if !matchingMirrorOrder(m, []int{3, 1, 4, 2}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M3, M1, M4, M2", formatMirrorOrder(m))
+	sort.Sort(ByComputedScore{m10})
+	if !matchingMirrorOrder(m10, []int{1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M1, M2", formatMirrorOrder(m))
 	}
 }
 
