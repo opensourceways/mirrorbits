@@ -138,6 +138,8 @@ type ByComputedScore struct {
 func (b ByComputedScore) Less(i, j int) bool {
 	if b.Mirrors[i].ComputedScore[0] > b.Mirrors[j].ComputedScore[0] {
 		return true
+	} else if b.Mirrors[i].ComputedScore[0] < b.Mirrors[j].ComputedScore[0] {
+		return false
 	}
 
 	if b.Mirrors[i].ComputedScore[1] > b.Mirrors[j].ComputedScore[1] {
