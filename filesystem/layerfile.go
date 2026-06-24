@@ -3,15 +3,16 @@
 package filesystem
 
 import (
-	"github.com/op/go-logging"
-	"github.com/opensourceways/mirrorbits/config"
-	"github.com/opensourceways/mirrorbits/utils"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/op/go-logging"
+	"github.com/opensourceways/mirrorbits/config"
+	"github.com/opensourceways/mirrorbits/utils"
 )
 
 const (
@@ -57,6 +58,7 @@ type DisplayFile struct {
 	Size    string
 	ShaCode string
 	Type    string
+	Sub     []DisplayFile `json:",omitempty"`
 }
 
 // website display file menu structure
@@ -388,6 +390,25 @@ func (ft *LayerFile) flattening() []DisplayFileList {
 	return ans
 }
 
+// toDisplayFile convert itself and its subtree to the DisplayFile
+func (ft *LayerFile) toDisplayFile() DisplayFile {
+	df := DisplayFile{
+		Name: ft.Name,
+		Path: ft.Dir + Sep + ft.Name,
+	}
+	if len(ft.Sub) == 0 {
+		df.Size = utils.ReadableSize(ft.Size)
+		df.ShaCode = ft.Sha256
+		df.Type = "file"
+	} else {
+		df.Type = "dir"
+		for _, sub := range ft.Sub {
+			df.Sub = append(df.Sub, sub.toDisplayFile())
+		}
+	}
+	return df
+}
+
 // collect every file from a tree-structured files node
 func (ft *LayerFile) collectFileInfo(ans []DisplayFileList, scenario string) []DisplayFileList {
 	if len(ft.Sub) == 0 {
@@ -398,45 +419,17 @@ func (ft *LayerFile) collectFileInfo(ans []DisplayFileList, scenario string) []D
 	arr := strings.Split(ft.Dir, Sep)
 	if len(arr) == 2 && arr[1] == "embedded_img" && len(ft.Sub) == 1 {
 		for _, p := range ft.Sub[0].Sub {
-			t = p.appendFile(len(p.Sub) == 0, t)
-			t = p.appendDir(len(p.Sub) != 0, t)
+			t = append(t, p.toDisplayFile())
 		}
 	} else {
 		for _, p := range ft.Sub {
-			t = p.appendFile(len(p.Sub) == 0, t)
-			t = p.appendDir(len(p.Sub) != 0, t)
+			t = append(t, p.toDisplayFile())
 		}
 	}
 	return append(ans, DisplayFileList{
 		Scenario: scenario,
 		Arch:     ft.Name,
 		Tree:     t,
-	})
-}
-
-func (ft *LayerFile) appendFile(flag bool, t []DisplayFile) []DisplayFile {
-	if !flag {
-		return t
-	}
-	path := ft.Dir + Sep + ft.Name
-	return append(t, DisplayFile{
-		Name:    ft.Name,
-		Path:    path,
-		Size:    utils.ReadableSize(ft.Size),
-		ShaCode: ft.Sha256,
-		Type:    "file",
-	})
-}
-
-func (ft *LayerFile) appendDir(flag bool, t []DisplayFile) []DisplayFile {
-	if !flag {
-		return t
-	}
-
-	return append(t, DisplayFile{
-		Name: ft.Name,
-		Path: ft.Dir + Sep + ft.Name,
-		Type: "dir",
 	})
 }
 
