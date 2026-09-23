@@ -139,10 +139,12 @@ func (m *monitor) MonitorLoop() {
 		r := m.redis.Get()
 		if r.Err() != nil {
 			if _, ok := r.Err().(database.NetReadyError); ok {
+				r.Close()
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 		}
+		r.Close()
 		break
 	}
 
