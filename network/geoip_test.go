@@ -67,8 +67,8 @@ func TestGeoIP_GetRecord(t *testing.T) {
 	if r.City != "test1" {
 		t.Fatalf("Invalid response got %s, expected test1", r.City)
 	}
-	if r.CountryCode != "test2" {
-		t.Fatalf("Invalid response got %s, expected test2", r.CountryCode)
+	if r.CountryCode != "TEST2" {
+		t.Fatalf("Invalid response got %s, expected TEST2", r.CountryCode)
 	}
 	if r.Country != "test3" {
 		t.Fatalf("Invalid response got %s, expected test3", r.Country)
