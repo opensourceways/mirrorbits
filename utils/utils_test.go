@@ -57,7 +57,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	if r := Version(); len(r) == 0 || r != core.VERSION {
+	if r := Version(); r != core.VERSION {
 		t.Fatalf("Expected %s, got %s", core.VERSION, r)
 	}
 }
