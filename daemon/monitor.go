@@ -594,9 +594,6 @@ func (m *monitor) retry(fn func(iteration uint) error, delay time.Duration) {
 		case <-m.stop:
 			return
 		case <-timer.C:
-			if !timer.Stop() {
-				<-timer.C
-			}
 			timer.Reset(delay)
 		}
 	}
