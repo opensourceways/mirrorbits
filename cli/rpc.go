@@ -21,6 +21,10 @@ func (c *cli) GetRPC() rpc.CLIClient {
 	c.Lock()
 	defer c.Unlock()
 
+	if c.mockClient != nil {
+		return c.mockClient
+	}
+
 	if c.rpcconn == nil {
 		conn, err := grpc.Dial(core.RPCHost+":"+strconv.FormatUint(uint64(core.RPCPort), 10),
 			grpc.WithInsecure(),
