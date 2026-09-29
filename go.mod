@@ -1,6 +1,7 @@
 module github.com/opensourceways/mirrorbits
 
 require (
+	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/golang/protobuf v1.5.4
@@ -20,6 +21,7 @@ require (
 require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
