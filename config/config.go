@@ -165,19 +165,22 @@ func ReloadConfig() error {
 		os.Exit(1)
 	}
 
+	return parseConfig(content, core.ConfigFile)
+}
+
+// parseConfig parses the given content and updates the global configuration
+func parseConfig(content []byte, configFile string) error {
 	if os.Getenv("DEBUG") != "" {
-		fmt.Println("Reading configuration from", core.ConfigFile)
+		fmt.Println("Reading configuration from", configFile)
 	}
 
 	c := defaultConfig()
 
-	// Overload the default configuration with the user's one
-	err = yaml.Unmarshal(content, &c)
+	err := yaml.Unmarshal(content, &c)
 	if err != nil {
-		return fmt.Errorf("%s in %s", err, core.ConfigFile)
+		return fmt.Errorf("%s in %s", err, configFile)
 	}
 
-	// Sanitize
 	if c.WeightDistributionRange <= 0 {
 		return fmt.Errorf("WeightDistributionRange must be > 0")
 	}
@@ -202,20 +205,11 @@ func ReloadConfig() error {
 		// TODO reload redis connections
 		// Currently established connections will be updated only in case of disconnection
 	}
-	//if config != nil &&
-	//	(c.RedisAddress != GetRedisAddress() ||
-	//		c.RedisPassword != GetRedisPwd() ||
-	//		!testSentinelsEq(c.RedisSentinels, config.RedisSentinels)) {
-	//	// TODO reload redis connections
-	//	// Currently established connections will be updated only in case of disconnection
-	//}
 
-	// Lock the pointer during the swap
 	configMutex.Lock()
 	config = &c
 	configMutex.Unlock()
 
-	// Notify all subscribers that the configuration has been reloaded
 	notifySubscribers()
 
 	return nil

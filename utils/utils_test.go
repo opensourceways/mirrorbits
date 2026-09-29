@@ -57,7 +57,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	if r := Version(); len(r) == 0 || r != core.VERSION {
+	if r := Version(); r != core.VERSION {
 		t.Fatalf("Expected %s, got %s", core.VERSION, r)
 	}
 }
@@ -148,7 +148,7 @@ func TestIsStopped(t *testing.T) {
 
 func TestReadableSize(t *testing.T) {
 	ivalues := []int64{0, 1, 1024, 1000000}
-	svalues := []string{"0.0 bytes", "1.0 bytes", "1.0 KB", "976.6 KB"}
+	svalues := []string{"0.0 B", "1.0 B", "1.0 KiB", "976.6 KiB"}
 
 	for i := range ivalues {
 		if r := ReadableSize(ivalues[i]); r != svalues[i] {
