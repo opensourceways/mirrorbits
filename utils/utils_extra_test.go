@@ -151,6 +151,12 @@ func TestMax_Equal(t *testing.T) {
 	}
 }
 
+func TestMax_Greater(t *testing.T) {
+	if r := Max(10, 5); r != 10 {
+		t.Fatalf("Expected 10, got %d", r)
+	}
+}
+
 func TestIsInSlice_Empty(t *testing.T) {
 	if IsInSlice("a", []string{}) {
 		t.Fatalf("Expected false for empty list")
