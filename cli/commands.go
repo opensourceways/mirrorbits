@@ -47,8 +47,9 @@ var (
 
 type cli struct {
 	sync.Mutex
-	rpcconn *grpc.ClientConn
-	creds   *loginCreds
+	rpcconn    *grpc.ClientConn
+	creds      *loginCreds
+	mockClient rpc.CLIClient
 }
 
 // ParseCommands parses the command line and call the appropriate functions

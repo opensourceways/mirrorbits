@@ -115,6 +115,11 @@ func (s *Stats) pushStats() {
 		return
 	}
 
+	if s.r == nil {
+		s.mapStats = make(map[string]int64)
+		return
+	}
+
 	rconn := s.r.Get()
 	defer rconn.Close()
 
